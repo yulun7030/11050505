@@ -1,0 +1,3764 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Puppy Rescue & Care - 幼犬救援與照護</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.10.0/p5.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #DB2777 !important;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    }
+    :fullscreen, :-webkit-full-screen, :-moz-full-screen, :-ms-fullscreen {
+      background-color: #DB2777 !important;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      display: block;
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- 背景音樂與環境音 -->
+  <audio id="bgmAudio" src="1.mp3" loop preload="none"></audio>
+  <audio id="rainAudio" src="rain.mp3" loop preload="none"></audio>
+
+  <!-- 音效資源 -->
+  <audio id="weakAudio" src="weak.mp3" preload="none"></audio>
+  <audio id="happyAudio" src="happy.mp3" preload="none"></audio>
+  <audio id="lampAudio" src="lamp.mp3" preload="none"></audio>
+  <audio id="bubbleAudio" src="bubble.mp3" loop preload="none"></audio>
+
+  <script>
+    const V_WIDTH = 800;
+    const V_HEIGHT = 600;
+
+    let canvasScale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    let currentScene = 'COVER';
+
+    // 圖像資源
+    let dogImg = null;
+    let dogCleanImg = null;
+    let dogClean2Img = null;
+    let menuBgImg = null;
+    let dirtyDog1Img = null;
+    let dirtyDog2Img = null;
+    let dirtyDog3Img = null;
+
+    // 第三關 6款圖檔陣列
+    let hatImgs = [];
+    let skinImgs = [];
+    let shoeImgs = [];
+
+    let dogLoaded = false;
+    let dogCleanLoaded = false;
+    let dogClean2Loaded = false;
+    let menuBgLoaded = false;
+    let dirtyDog1Loaded = false;
+    let dirtyDog2Loaded = false;
+    let dirtyDog3Loaded = false;
+
+    // 音訊管理
+    let bgmElement = null;
+    let rainElement = null;
+    let weakElement = null;
+    let happyElement = null;
+    let lampElement = null;
+    let bubbleElement = null;
+
+    let isMusicPlaying = true;
+    let bgmTargetVolume = 0.5;
+    let rainTargetVolume = 0.0;
+    let audioUnlocked = false;
+
+    let isWeakPlaying = false;
+    let weakStopTimer = 0;
+
+    const PALETTE = {
+      bgPinkTop: '#F472B6',
+      bgPinkBottom: '#DB2777',
+      jellyBlue: '#38BDF8',
+      jellyBlueBorder: '#0284C7',
+      jellyBlueDark: '#0369A1',
+      textYellow: '#FDE047',
+      textYellowBorder: '#CA8A04',
+      textPurple: '#818CF8',
+      textPurpleBorder: '#4338CA',
+      charcoal: '#374151',
+      white: '#FFFFFF',
+
+      dogEyelid: '#6E3C1B',
+      dogEyeDark: '#4A260F',
+      dogBrown: '#7C3F1D',
+      dogCleanHighlight: '#B06536',
+      tearBlue: 'rgba(186, 230, 253, 0.95)',
+      sparkleGold: '#FDE047',
+
+      stormSkyTop: '#090D16',
+      stormSkyBottom: '#1E293B',
+      streetFloor: '#252F3F',
+      puddleColor: 'rgba(51, 65, 85, 0.75)',
+      rainStreak: 'rgba(203, 213, 225, 0.65)'
+    };
+
+    const INJURED_DOG_WIDTH = 320;
+    const INJURED_DOG_HEIGHT = 210;
+    const CLEAN_DOG_BASE_HEIGHT = 250;
+
+    let cloudAngle = 0;
+    let buttonPulse = 0;
+    let homeStartTime = 0;
+    let isHomeTimeInitialized = false;
+    const HOME_CYCLE_DURATION = 13.0;
+
+    let smokePuffs = [];
+    let sparkles = [];
+    let lastSmokeStage = -1;
+
+    let loadingStartTime = 0;
+    let loadingNextStartTime = 0;
+    let loadingBathStartTime = 0;
+    let loadingDressStartTime = 0;
+    const LOADING_DURATION = 3.0;
+
+    let storyStartTime = 0;
+    let rainParticles = [];
+    const RAIN_COUNT = 160;
+
+    let branchData = {
+      x: 0,
+      y: 0,
+      initialX: -65,
+      initialY: -10,
+      isDragging: false,
+      isRemoved: false,
+      dragOffsetX: 0,
+      dragOffsetY: 0
+    };
+
+    let unlockedStages = {
+      firstAid: true,
+      bath: false,
+      dressUp: false
+    };
+    let lockTipTimer = 0;
+    let lockTipMsg = "";
+
+    // 第一關急救系統狀態
+    let careTools = [
+      { id: 'cotton', name: '消毒棉花', icon: '☁️', desc: '拖曳擦拭5下', done: false },
+      { id: 'needle', name: '針筒', icon: '💉', desc: '按住注射藥水', done: false },
+      { id: 'bugs', name: '鑷子', icon: '🧷', desc: '夾入右側玻璃罐', done: false },
+      { id: 'bandage', name: '包紮', icon: '🩹', desc: '向下滾動包紮', done: false }
+    ];
+    let selectedToolIndex = 0;
+    let painEffectTimer = 0;
+    let painTears = [];
+    let careSuccess = false;
+    let celebrateTimer = 0;
+
+    let cottonWipes = 0;
+    let lastWipePos = { x: 0, y: 0 };
+    let isWiping = false;
+
+    let isInjecting = false;
+    let injectProgress = 0;
+    const INJECT_SPEED = 1.0;
+
+    let bugs = [
+      { x: -50, y: -20, vx: 0.35, vy: 0.2, caught: false, inJar: false },
+      { x: -10, y: 25, vx: -0.28, vy: 0.3, caught: false, inJar: false },
+      { x: -80, y: 15, vx: 0.3, vy: -0.25, caught: false, inJar: false }
+    ];
+    let draggedBugIndex = -1;
+    let jarBounds = { x: 495, y: 395, w: 95, h: 125 };
+    let bandageRollProgress = 0;
+
+    // 第二關沐浴系統狀態
+    const TUB_COLORS = [
+      { name: '白', hex: '#FFFFFF', border: '#CBD5E1', shadow: '#94A3B8' },
+      { name: '紅', hex: '#FDA4AF', border: '#F43F5E', shadow: '#BE123C' },
+      { name: '橙', hex: '#FDBA74', border: '#F97316', shadow: '#C2410C' },
+      { name: '黃', hex: '#FEF08A', border: '#EAB308', shadow: '#A16207' },
+      { name: '綠', hex: '#A7F3D0', border: '#10B981', shadow: '#047857' },
+      { name: '藍', hex: '#BAE6FD', border: '#0284C7', shadow: '#0369A1' }
+    ];
+    let selectedTubColor = TUB_COLORS[0];
+    let isColorConfirmed = false;
+
+    let confettiParticles = [];
+    let confettiTimer = 0;
+
+    let bathDogState = {
+      inTub: false,
+      isDragging: false,
+      x: 0,
+      y: 0,
+      stage: 1,
+      headBubbles: 0,
+      bodyBubbles: 0,
+      washProgress: 0,
+      dryProgress: 0
+    };
+
+    let bathTools = [
+      { id: 'shampoo', name: '洗髮精', icon: '🧴', desc: '拖曳至頭上傾斜', step: 1 },
+      { id: 'shower',  name: '蓮蓬頭', icon: '🚿', desc: '沖洗所有泡泡', step: 2 },
+      { id: 'dryer',   name: '吹風機', icon: '💨', desc: '吹乾全身毛髮', step: 3 }
+    ];
+    let bathCurrentStep = 1;
+    let bathSuccess = false;
+
+    let isShampooDragging = false;
+    let isShowerActive = false;
+    let isDryerActive = false;
+
+    // 第三關更衣室系統狀態
+    let wardrobeOpen = false;
+    let dressPhase = 1; // 1: hat, 4: done
+    let selectedHatIndex = 0;
+    let selectedSkinIndex = -1;
+    let selectedShoeIndex = -1;
+
+    let confirmedHat = -1;
+    let confirmedSkin = -1;
+    let confirmedShoe = -1;
+    let dressGameOver = false;
+
+    const KIDS_MESSAGES = [
+      "汪！謝謝你照顧我！每一隻毛小孩都是珍貴的家人喔❤️",
+      "以領養代替購買！請好好愛牠一輩子，千萬不要棄養喔！",
+      "出門散步要記得牽繩～看到受傷的動物可以告訴大人幫忙喔！",
+      "動物也懂得快樂與害怕，請用愛心和溫柔對待所有生命！"
+    ];
+
+    function safeRemoveWhiteBackground(pImg) {
+      if (!pImg || pImg.width <= 0) return;
+      try {
+        pImg.loadPixels();
+        let w = pImg.width;
+        let h = pImg.height;
+        let visited = new Uint8Array(w * h);
+        let queue = [];
+
+        function checkAndPush(x, y) {
+          if (x < 0 || x >= w || y < 0 || y >= h) return;
+          let idx = y * w + x;
+          if (visited[idx]) return;
+          let pIdx = idx * 4;
+          let r = pImg.pixels[pIdx];
+          let g = pImg.pixels[pIdx + 1];
+          let b = pImg.pixels[pIdx + 2];
+          let a = pImg.pixels[pIdx + 3];
+
+          if (a > 0 && r > 220 && g > 220 && b > 220) {
+            visited[idx] = 1;
+            queue.push(x, y);
+          }
+        }
+
+        for (let x = 0; x < w; x++) { checkAndPush(x, 0); checkAndPush(x, h - 1); }
+        for (let y = 0; y < h; y++) { checkAndPush(0, y); checkAndPush(w - 1, y); }
+
+        let qHead = 0;
+        while (qHead < queue.length) {
+          let qx = queue[qHead++];
+          let qy = queue[qHead++];
+          let pIdx = (qy * w + qx) * 4;
+          pImg.pixels[pIdx + 3] = 0;
+          checkAndPush(qx + 1, qy); checkAndPush(qx - 1, qy);
+          checkAndPush(qx, qy + 1); checkAndPush(qx, qy - 1);
+        }
+        pImg.updatePixels();
+      } catch (e) {
+        console.warn("去背略過：", e);
+      }
+    }
+
+    function safePlayAudio(audioElem) {
+      if (!audioElem || !isMusicPlaying) return;
+      try {
+        let p = audioElem.play();
+        if (p && typeof p.catch === 'function') p.catch(function() {});
+      } catch (err) {}
+    }
+
+    function playLampSound() {
+      if (!isMusicPlaying || !lampElement) return;
+      try {
+        lampElement.currentTime = 0;
+        lampElement.volume = 0.6;
+        lampElement.play().catch(function() {});
+      } catch (e) {}
+    }
+
+    function triggerWeakAudio(durationSec = 2.0) {
+      if (!isMusicPlaying || !weakElement) return;
+      if (millis() < weakStopTimer) return;
+      try {
+        weakElement.currentTime = 0;
+        weakElement.volume = 0.7;
+        weakElement.play().catch(function() {});
+        isWeakPlaying = true;
+        weakStopTimer = millis() + durationSec * 1000;
+      } catch (e) {}
+    }
+
+    function playHappySound() {
+      if (!isMusicPlaying || !happyElement) return;
+      try {
+        happyElement.currentTime = 0;
+        happyElement.volume = 0.8;
+        happyElement.play().catch(function() {});
+      } catch (e) {}
+    }
+
+    function preload() {
+      dogImg = loadImage('dog.png', () => { dogLoaded = true; }, () => { dogLoaded = false; });
+      dogCleanImg = loadImage('dog_clean.png', () => { dogCleanLoaded = true; }, () => { dogCleanLoaded = false; });
+      dogClean2Img = loadImage('dog_clean2.png', () => { dogClean2Loaded = true; }, () => { dogClean2Loaded = false; });
+      menuBgImg = loadImage('menu_bg.png', () => { menuBgLoaded = true; }, () => { menuBgLoaded = false; });
+
+      dirtyDog1Img = loadImage('dirtydog1.png', (img) => {
+        safeRemoveWhiteBackground(img);
+        dirtyDog1Loaded = true;
+      }, () => { dirtyDog1Loaded = false; });
+
+      dirtyDog2Img = loadImage('dirtydog2.png', () => { dirtyDog2Loaded = true; }, () => { dirtyDog2Loaded = false; });
+      dirtyDog3Img = loadImage('dirtydog3.png', () => { dirtyDog3Loaded = true; }, () => { dirtyDog3Loaded = false; });
+
+      for (let i = 1; i <= 6; i++) {
+        hatImgs.push(loadImage(`hat/${i}.png`, () => {}, () => {}));
+        skinImgs.push(loadImage(`skin/${i}.png`, () => {}, () => {}));
+        shoeImgs.push(loadImage(`shoe/${i}.png`, () => {}, () => {}));
+      }
+    }
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      textFont("sans-serif");
+      textAlign(CENTER, CENTER);
+      imageMode(CENTER);
+      updateScale();
+
+      for (let i = 0; i < RAIN_COUNT; i++) {
+        rainParticles.push({
+          x: random(-200, V_WIDTH + 200),
+          y: random(-300, V_HEIGHT),
+          len: random(20, 42),
+          speed: random(18, 28)
+        });
+      }
+
+      bgmElement = document.getElementById("bgmAudio");
+      rainElement = document.getElementById("rainAudio");
+      weakElement = document.getElementById("weakAudio");
+      happyElement = document.getElementById("happyAudio");
+      lampElement = document.getElementById("lampAudio");
+      bubbleElement = document.getElementById("bubbleAudio");
+
+      if (bgmElement) {
+        bgmElement.volume = bgmTargetVolume;
+        safePlayAudio(bgmElement);
+      }
+      if (rainElement) rainElement.volume = 0;
+      if (bubbleElement) bubbleElement.volume = 0;
+
+      resetBranchPosition();
+      resetBathSystem();
+
+      function unlockAudioContext() {
+        if (!audioUnlocked) {
+          audioUnlocked = true;
+          if (isMusicPlaying) {
+            if (currentScene === 'STORY' && rainElement) safePlayAudio(rainElement);
+            else if (currentScene === 'BATH_PLAYING' && bubbleElement) safePlayAudio(bubbleElement);
+            else if (bgmElement) safePlayAudio(bgmElement);
+          }
+        }
+        window.removeEventListener("pointerdown", unlockAudioContext);
+        window.removeEventListener("touchstart", unlockAudioContext);
+        window.removeEventListener("click", unlockAudioContext);
+      }
+      window.addEventListener("pointerdown", unlockAudioContext);
+      window.addEventListener("touchstart", unlockAudioContext);
+      window.addEventListener("click", unlockAudioContext);
+    }
+
+    function resetBranchPosition() {
+      branchData.x = branchData.initialX;
+      branchData.y = branchData.initialY;
+      branchData.isDragging = false;
+      branchData.isRemoved = false;
+    }
+
+    function resetCareSystem() {
+      for (let t of careTools) t.done = false;
+      selectedToolIndex = 0;
+      careSuccess = false;
+      painEffectTimer = 0;
+      painTears = [];
+      cottonWipes = 0;
+      isInjecting = false;
+      injectProgress = 0;
+      bandageRollProgress = 0;
+      draggedBugIndex = -1;
+      bugs = [
+        { x: -50, y: -20, vx: 0.35, vy: 0.2, caught: false, inJar: false },
+        { x: -10, y: 25, vx: -0.28, vy: 0.3, caught: false, inJar: false },
+        { x: -80, y: 15, vx: 0.3, vy: -0.25, caught: false, inJar: false }
+      ];
+    }
+
+    function resetBathSystem() {
+      isColorConfirmed = false;
+      selectedTubColor = TUB_COLORS[0];
+      let curW = width > 0 ? width : V_WIDTH;
+      let curH = height > 0 ? height : V_HEIGHT;
+      bathDogState = {
+        inTub: false,
+        isDragging: false,
+        x: curW * 0.76,
+        y: curH * 0.60,
+        stage: 1,
+        headBubbles: 0,
+        bodyBubbles: 0,
+        washProgress: 0,
+        dryProgress: 0
+      };
+      bathCurrentStep = 1;
+      bathSuccess = false;
+      isShampooDragging = false;
+      isShowerActive = false;
+      isDryerActive = false;
+    }
+
+    function resetDressSystem() {
+      wardrobeOpen = false;
+      dressPhase = 1;
+      selectedHatIndex = 0;
+      selectedSkinIndex = -1;
+      selectedShoeIndex = -1;
+      confirmedHat = -1;
+      confirmedSkin = -1;
+      confirmedShoe = -1;
+      dressGameOver = false;
+    }
+
+    function triggerConfetti(durationSec = 1.0) {
+      confettiTimer = millis() + durationSec * 1000;
+      confettiParticles = [];
+      for (let i = 0; i < 110; i++) {
+        confettiParticles.push({
+          x: random(width),
+          y: random(-50, height * 0.4),
+          vx: random(-3.5, 3.5),
+          vy: random(4, 9),
+          size: random(7, 14),
+          color: random(['#F43F5E', '#FB923C', '#FBBF24', '#34D399', '#38BDF8', '#A855F7', '#FFFFFF']),
+          angle: random(TWO_PI),
+          spin: random(-0.15, 0.15)
+        });
+      }
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+      updateScale();
+    }
+
+    function updateScale() {
+      let scaleX = width / V_WIDTH;
+      let scaleY = height / V_HEIGHT;
+      canvasScale = min(scaleX, scaleY);
+      if (canvasScale <= 0 || isNaN(canvasScale)) canvasScale = 1;
+      offsetX = (width - V_WIDTH * canvasScale) / 2;
+      offsetY = (height - V_HEIGHT * canvasScale) / 2;
+    }
+
+    function getVirtualMouse() {
+      let s = (canvasScale > 0) ? canvasScale : 1;
+      return {
+        x: (mouseX - offsetX) / s,
+        y: (mouseY - offsetY) / s
+      };
+    }
+
+    function draw() {
+      if (!isHomeTimeInitialized) {
+        homeStartTime = millis();
+        isHomeTimeInitialized = true;
+      }
+
+      drawDynamicFullWindowBackground();
+
+      cloudAngle = sin(frameCount * 0.06) * 0.15;
+      buttonPulse = sin(frameCount * 0.08) * 3;
+
+      updateAudioCrossfade();
+
+      if (isWeakPlaying && millis() >= weakStopTimer) {
+        if (weakElement) {
+          try {
+            weakElement.pause();
+            weakElement.currentTime = 0;
+          } catch (e) {}
+        }
+        isWeakPlaying = false;
+      }
+
+      if (currentScene === 'STORY') {
+        drawFullscreenStormSkyAndGround();
+      }
+
+      if (currentScene === 'STAGE_SELECT') {
+        drawStageSelectScene();
+      } else if (currentScene === 'BATH_PLAYING') {
+        drawFullscreenBathScene();
+      } else if (currentScene === 'DRESS_PLAYING') {
+        drawFullscreenDressScene();
+      } else {
+        push();
+        translate(offsetX, offsetY);
+        scale(canvasScale);
+
+        if (currentScene === 'COVER') {
+          drawCoverScene();
+        } else if (currentScene === 'LOADING_STORY') {
+          drawLoadingStoryScene();
+        } else if (currentScene === 'STORY') {
+          drawStoryScene();
+        } else if (currentScene === 'LOADING_NEXT') {
+          drawLoadingNextScene();
+        } else if (currentScene === 'CARE_PLAYING') {
+          drawCarePlayingScene();
+        } else if (currentScene === 'LOADING_BATH') {
+          drawLoadingBathScene();
+        } else if (currentScene === 'LOADING_DRESS') {
+          drawLoadingDressScene();
+        }
+
+        pop();
+      }
+
+      if (currentScene === 'STORY') {
+        drawFullscreenRainLayer();
+      }
+
+      if (millis() < confettiTimer) {
+        drawFullscreenConfetti();
+      }
+
+      drawFullscreenButtonDirect();
+      drawMusicButtonDirect();
+    }
+
+    function drawDynamicFullWindowBackground() {
+      push();
+      resetMatrix();
+      noStroke();
+      let steps = 14;
+
+      if (currentScene === 'STORY') {
+        for (let i = 0; i <= steps; i++) {
+          let inter = i / steps;
+          let c = lerpColor(color(PALETTE.stormSkyTop), color(PALETTE.stormSkyBottom), inter);
+          fill(c);
+          rect(0, (height / steps) * i, width, height / steps + 2);
+        }
+      } else if (currentScene === 'STAGE_SELECT') {
+        fill('#86EFAC');
+        rect(0, 0, width, height);
+      } else if (currentScene === 'BATH_PLAYING') {
+        for (let i = 0; i <= steps; i++) {
+          let inter = i / steps;
+          let c = lerpColor(color('#E0F2FE'), color('#BAE6FD'), inter);
+          fill(c);
+          rect(0, (height / steps) * i, width, height / steps + 2);
+        }
+      } else if (currentScene === 'DRESS_PLAYING') {
+        for (let i = 0; i <= steps; i++) {
+          let inter = i / steps;
+          let c = lerpColor(color('#FFF1F2'), color('#FFE4E6'), inter);
+          fill(c);
+          rect(0, (height / steps) * i, width, height / steps + 2);
+        }
+      } else {
+        for (let i = 0; i <= steps; i++) {
+          let inter = i / steps;
+          let c = lerpColor(color(PALETTE.bgPinkTop), color(PALETTE.bgPinkBottom), inter);
+          fill(c);
+          rect(0, (height / steps) * i, width, height / steps + 2);
+        }
+      }
+      pop();
+    }
+
+    function drawFullscreenStormSkyAndGround() {
+      push();
+      resetMatrix();
+      noStroke();
+
+      let groundScreenY = offsetY + 360 * canvasScale;
+      fill(PALETTE.streetFloor);
+      rect(0, groundScreenY, width, height - groundScreenY + 2);
+
+      let windSway = sin(frameCount * 0.12) * (20 * canvasScale);
+      fill(15, 23, 42, 220);
+      beginShape();
+      vertex(0, groundScreenY);
+      bezierVertex(width * 0.15, groundScreenY - 20 * canvasScale + windSway, width * 0.25, groundScreenY - 90 * canvasScale + windSway, width * 0.35, groundScreenY);
+      bezierVertex(width * 0.55, groundScreenY - 50 * canvasScale + windSway, width * 0.7, groundScreenY - 100 * canvasScale + windSway, width * 0.85, groundScreenY);
+      vertex(width, groundScreenY);
+      vertex(width, height);
+      vertex(0, height);
+      endShape(CLOSE);
+      pop();
+    }
+
+    function drawFullscreenRainLayer() {
+      push();
+      resetMatrix();
+      stroke(PALETTE.rainStreak);
+      strokeWeight(2.0);
+
+      let angle = PI * 0.35;
+      let cosA = cos(angle);
+      let sinA = sin(angle);
+
+      for (let i = 0; i < rainParticles.length; i++) {
+        let r = rainParticles[i];
+        let dx = cosA * r.len * canvasScale;
+        let dy = sinA * r.len * canvasScale;
+
+        let screenX = offsetX + r.x * canvasScale;
+        let screenY = offsetY + r.y * canvasScale;
+
+        line(screenX, screenY, screenX + dx, screenY + dy);
+
+        r.x += cosA * r.speed;
+        r.y += sinA * r.speed;
+
+        if (r.y > V_HEIGHT + 80 || r.x > V_WIDTH + 260) {
+          r.x = random(-240, V_WIDTH);
+          r.y = random(-120, -10);
+        }
+      }
+      pop();
+    }
+
+    function drawFullscreenConfetti() {
+      push();
+      resetMatrix();
+      noStroke();
+      for (let p of confettiParticles) {
+        fill(p.color);
+        push();
+        translate(p.x, p.y);
+        rotate(p.angle);
+        rectMode(CENTER);
+        rect(0, 0, p.size, p.size * 0.5, 2);
+        pop();
+        p.y += p.vy;
+        p.x += p.vx;
+        p.angle += p.spin;
+      }
+      pop();
+    }
+
+    function updateAudioCrossfade() {
+      if (!isMusicPlaying) {
+        try {
+          if (bgmElement) bgmElement.volume = 0;
+          if (rainElement) rainElement.volume = 0;
+          if (bubbleElement) bubbleElement.volume = 0;
+          if (weakElement) weakElement.volume = 0;
+        } catch (e) {}
+        return;
+      }
+
+      try {
+        if (bgmElement && !isNaN(bgmElement.volume)) {
+          let curr = bgmElement.volume;
+          let next = lerp(curr, bgmTargetVolume, 0.08);
+          if (abs(next - bgmTargetVolume) < 0.005) next = bgmTargetVolume;
+          bgmElement.volume = constrain(next, 0, 1);
+          if (bgmTargetVolume === 0 && bgmElement.volume <= 0.01 && !bgmElement.paused) {
+            bgmElement.pause();
+          }
+        }
+        if (rainElement && !isNaN(rainElement.volume)) {
+          let curr = rainElement.volume;
+          let next = lerp(curr, rainTargetVolume, 0.08);
+          if (abs(next - rainTargetVolume) < 0.005) next = rainTargetVolume;
+          rainElement.volume = constrain(next, 0, 1);
+          if (rainTargetVolume === 0 && rainElement.volume <= 0.01 && !rainElement.paused) {
+            rainElement.pause();
+          }
+        }
+
+        if (bubbleElement) {
+          if (currentScene === 'BATH_PLAYING') {
+            if (bubbleElement.paused) safePlayAudio(bubbleElement);
+            bubbleElement.volume = lerp(bubbleElement.volume, 0.65, 0.1);
+          } else {
+            bubbleElement.volume = lerp(bubbleElement.volume, 0, 0.1);
+            if (bubbleElement.volume <= 0.02 && !bubbleElement.paused) {
+              bubbleElement.pause();
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 1. 主畫面
+    // ==========================================
+    function drawCoverScene() {
+      drawPinkGlow();
+
+      let vm = getVirtualMouse();
+
+      drawRainbow(V_WIDTH / 2, 140, 220);
+      drawUpsideDownCloud(V_WIDTH / 2 + 105, 70);
+
+      drawCurvedText("RESCUE", V_WIDTH / 2 - 105, 110, 40, -0.22);
+      drawCurvedText("& CARE", V_WIDTH / 2 + 105, 110, 40, 0.22);
+      drawJellyTitle("PUPPY", V_WIDTH / 2, 180, 80);
+
+      drawLoopingDogSystem(V_WIDTH / 2, 375);
+
+      let isHover = vm.x > V_WIDTH / 2 - 100 && vm.x < V_WIDTH / 2 + 100 &&
+                    vm.y > 470 && vm.y < 540;
+      drawJellyButton(V_WIDTH / 2, 508 + (isHover ? -2 : 0), 195 + buttonPulse, 66, "PLAY", isHover);
+
+      fill(255, 230);
+      textSize(13);
+      text(isMusicPlaying ? "🎵 音樂播放中（點擊右上角喇叭可靜音）" : "🔇 已靜音（點擊右上角喇叭開啟音樂）", V_WIDTH / 2, 574);
+    }
+
+    function drawPinkGlow() {
+      noStroke();
+      fill(255, 255, 255, 20);
+      ellipse(V_WIDTH / 2, V_HEIGHT / 2 - 40, 680, 480);
+    }
+
+    function drawLoopingDogSystem(x, y) {
+      let totalElapsed = (millis() - homeStartTime) / 1000;
+      let cycleTime = totalElapsed % HOME_CYCLE_DURATION;
+
+      if (cycleTime >= 5.0 && cycleTime < 5.3 && lastSmokeStage !== 1) {
+        lastSmokeStage = 1;
+        spawnDelicateSmoke(x, y + 10);
+      } else if (cycleTime >= 9.0 && cycleTime < 9.3 && lastSmokeStage !== 2) {
+        lastSmokeStage = 2;
+        spawnDelicateSmoke(x, y + 10);
+      } else if (cycleTime >= 12.3 && cycleTime < 12.6 && lastSmokeStage !== 3) {
+        lastSmokeStage = 3;
+        spawnDelicateSmoke(x, y + 10);
+      } else if (cycleTime < 4.5 && lastSmokeStage === 3) {
+        lastSmokeStage = 0;
+      }
+
+      push();
+      translate(x, y);
+
+      let breath = sin(frameCount * 0.045);
+      noStroke();
+      fill(0, 0, 0, 35);
+      ellipse(0, 85, 300 + breath * 12, 50);
+
+      if (cycleTime < 5.6) {
+        drawInjuredDogSprite(false);
+      } else if (cycleTime >= 5.6 && cycleTime < 9.6) {
+        drawCleanDogSprite(dogCleanImg, dogCleanLoaded, CLEAN_DOG_BASE_HEIGHT);
+      } else {
+        drawCleanDogSprite(dogClean2Img, dogClean2Loaded, CLEAN_DOG_BASE_HEIGHT);
+      }
+
+      pop();
+
+      updateAndDrawDelicateSmoke();
+
+      if (cycleTime >= 9.8 && cycleTime < 12.2) {
+        updateAndDrawSparkles(x, y);
+      }
+    }
+
+    function spawnDelicateSmoke(cx, cy) {
+      for (let i = 0; i < 45; i++) {
+        smokePuffs.push({
+          x: cx + random(-85, 85),
+          y: cy + random(-25, 55),
+          vx: random(-1.5, 1.5),
+          vy: random(-1.9, -0.5),
+          size: random(18, 34),
+          maxSize: random(50, 80),
+          alpha: 250,
+          growRate: random(1.5, 2.2),
+          fadeRate: random(2.6, 3.8),
+          shade: random([255, 248, 242])
+        });
+      }
+    }
+
+    function updateAndDrawDelicateSmoke() {
+      for (let i = smokePuffs.length - 1; i >= 0; i--) {
+        let p = smokePuffs[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.size < p.maxSize) p.size += p.growRate;
+        p.alpha -= p.fadeRate;
+
+        noStroke();
+        fill(254, 218, 232, p.alpha * 0.45);
+        circle(p.x, p.y, p.size * 1.25);
+        fill(p.shade, p.shade, p.shade, p.alpha);
+        circle(p.x, p.y, p.size);
+
+        if (p.alpha <= 0) smokePuffs.splice(i, 1);
+      }
+    }
+
+    function updateAndDrawSparkles(cx, cy) {
+      if (frameCount % 6 === 0) {
+        sparkles.push({
+          x: cx + random(-140, 140),
+          y: cy + random(-80, 40),
+          size: random(9, 18),
+          life: 255,
+          rot: random(TWO_PI),
+          rotSpeed: random(-0.08, 0.08)
+        });
+      }
+
+      for (let i = sparkles.length - 1; i >= 0; i--) {
+        let s = sparkles[i];
+        s.life -= 6;
+        s.y -= 0.6;
+        s.rot += s.rotSpeed;
+
+        push();
+        translate(s.x, s.y);
+        rotate(s.rot);
+        noStroke();
+        fill(253, 224, 71, s.life);
+        beginShape();
+        vertex(0, -s.size);
+        vertex(s.size * 0.25, -s.size * 0.25);
+        vertex(s.size, 0);
+        vertex(s.size * 0.25, s.size * 0.25);
+        vertex(0, s.size);
+        vertex(-s.size * 0.25, s.size * 0.25);
+        vertex(-s.size, 0);
+        vertex(-s.size * 0.25, -s.size * 0.25);
+        endShape(CLOSE);
+        pop();
+
+        if (s.life <= 0) sparkles.splice(i, 1);
+      }
+    }
+
+    // ==========================================
+    // 狗狗繪製
+    // ==========================================
+    function drawInjuredDogSprite(withWoundsAndBranches, isPain = false, isHappy = false) {
+      let w = INJURED_DOG_WIDTH;
+      let h = INJURED_DOG_HEIGHT;
+
+      let breath = sin(frameCount * (isHappy ? 0.07 : 0.045));
+      let scaleW = map(breath, -1, 1, 0.99, 1.01);
+      let scaleH = map(breath, -1, 1, 1.01, 0.99);
+      let floatY = breath * (isHappy ? 2.0 : 1.8);
+
+      push();
+      translate(0, floatY);
+      scale(scaleW, scaleH);
+
+      let leftEyeX = 38;
+      let leftEyeY = -10;
+      let rightEyeX = 86;
+      let rightEyeY = -7;
+
+      if ((dogLoaded || (dogImg && dogImg.width > 0))) {
+        image(dogImg, 0, 0, w, h);
+      } else {
+        drawFallbackDog(w, h);
+      }
+
+      if (isHappy) {
+        push();
+        noStroke();
+
+        let furBase = color(122, 93, 70);
+        let furShadow = color(96, 70, 52);
+
+        fill(furShadow);
+        ellipse(leftEyeX, leftEyeY, 24, 22);
+        fill(furBase);
+        ellipse(leftEyeX - 2, leftEyeY - 2, 20, 18);
+        ellipse(leftEyeX - 5, leftEyeY + 10, 14, 18);
+
+        fill(furShadow);
+        ellipse(rightEyeX, rightEyeY, 24, 22);
+        fill(furBase);
+        ellipse(rightEyeX + 1, rightEyeY - 2, 20, 18);
+        ellipse(rightEyeX - 1, rightEyeY + 12, 14, 20);
+
+        noFill();
+        stroke(55, 34, 22);
+        strokeWeight(3.4);
+        strokeCap(ROUND);
+        arc(leftEyeX - 2, leftEyeY - 1, 20, 13, PI * 0.12, PI * 0.88);
+        arc(rightEyeX, rightEyeY - 1, 20, 13, PI * 0.12, PI * 0.88);
+
+        strokeWeight(2.0);
+        line(leftEyeX + 8, leftEyeY + 3, leftEyeX + 11, leftEyeY);
+        line(rightEyeX + 10, rightEyeY + 3, rightEyeX + 13, rightEyeY);
+
+        stroke(75, 45, 28);
+        strokeWeight(2.2);
+        arc(leftEyeX - 2, leftEyeY - 14, 16, 7, PI * 1.15, PI * 1.85);
+        arc(rightEyeX + 1, rightEyeY - 14, 16, 7, PI * 1.15, PI * 1.85);
+
+        noStroke();
+        fill(251, 113, 133, 85);
+        ellipse(leftEyeX - 16, leftEyeY + 14, 14, 8);
+        ellipse(rightEyeX + 16, rightEyeY + 14, 14, 8);
+        pop();
+      } else if (isPain) {
+        if (currentScene === 'CARE_PLAYING') {
+          triggerWeakAudio(2.0);
+        }
+
+        noStroke();
+        fill(PALETTE.dogEyelid);
+        ellipse(leftEyeX, leftEyeY, 32, 30);
+        ellipse(rightEyeX, rightEyeY, 30, 28);
+
+        stroke(PALETTE.dogEyeDark);
+        strokeWeight(4);
+        noFill();
+        line(leftEyeX - 12, leftEyeY - 6, leftEyeX + 6, leftEyeY);
+        line(leftEyeX - 12, leftEyeY + 8, leftEyeX + 6, leftEyeY);
+        line(rightEyeX + 12, rightEyeY - 6, rightEyeX - 6, rightEyeY);
+        line(rightEyeX + 12, rightEyeY + 8, rightEyeX - 6, rightEyeY);
+
+        fill(186, 230, 253, 230);
+        noStroke();
+        circle(leftEyeX - 18, leftEyeY + 12, 10);
+        circle(leftEyeX - 26, leftEyeY + 22, 7);
+        circle(rightEyeX + 18, rightEyeY + 12, 10);
+        circle(rightEyeX + 26, rightEyeY + 22, 7);
+      } else {
+        let blinkTimer = frameCount % 190;
+        let isBlinking = blinkTimer > 165 && blinkTimer < 180;
+
+        if (isBlinking) {
+          if (currentScene === 'CARE_PLAYING') {
+            triggerWeakAudio(2.0);
+          }
+
+          noStroke();
+          fill(PALETTE.dogEyelid);
+          ellipse(leftEyeX, leftEyeY, 28, 26);
+          ellipse(rightEyeX, rightEyeY, 27, 25);
+
+          noFill();
+          stroke(PALETTE.dogEyeDark);
+          strokeWeight(3.0);
+          arc(leftEyeX, leftEyeY + 1, 24, 13, PI * 0.08, PI * 0.92);
+          arc(rightEyeX, rightEyeY + 1, 23, 13, PI * 0.08, PI * 0.92);
+        } else {
+          let tearShine = sin(frameCount * 0.12) * 1.5;
+          noStroke();
+          fill(PALETTE.tearBlue);
+          ellipse(leftEyeX - 6, leftEyeY + 6, 7 + tearShine, 8 + tearShine);
+          ellipse(rightEyeX - 6, rightEyeY + 6, 7 + tearShine, 8 + tearShine);
+
+          fill(255, 255, 255, 230);
+          circle(leftEyeX - 8, leftEyeY + 4, 3.2);
+          circle(rightEyeX - 8, rightEyeY + 4, 3.2);
+        }
+
+        let tearProgress = (frameCount % 160) / 160;
+        let tearY1 = map(tearProgress, 0, 1, leftEyeY + 6, leftEyeY + 42);
+        let tearY2 = map((tearProgress + 0.3) % 1, 0, 1, rightEyeY + 6, rightEyeY + 38);
+        let tearAlpha = map(tearProgress, 0, 0.8, 230, 0);
+
+        fill(186, 230, 253, tearAlpha);
+        noStroke();
+        ellipse(leftEyeX - 5, tearY1, 4.5, 7.5);
+        fill(186, 230, 253, map((tearProgress + 0.3) % 1, 0, 0.8, 230, 0));
+        ellipse(rightEyeX - 5, tearY2, 4.2, 7.0);
+      }
+
+      if (withWoundsAndBranches) {
+        drawWoundsOnlyOnDog();
+      }
+
+      pop();
+    }
+
+    function drawWoundsOnlyOnDog() {
+      push();
+      let woundAlpha = 230;
+      if (careTools[0].done) woundAlpha = 110;
+      if (careTools[3].done || careSuccess) woundAlpha = 0;
+
+      if (woundAlpha > 0) {
+        noStroke();
+        fill(136, 19, 19, woundAlpha);
+        ellipse(-60, 5, 45, 18);
+        ellipse(-30, 20, 38, 14);
+        ellipse(45, 38, 30, 15);
+
+        strokeCap(ROUND);
+        stroke(153, 27, 27, woundAlpha);
+        strokeWeight(6.0);
+        noFill();
+        line(-80, -2, -45, 12);
+        line(-70, 10, -32, 26);
+        line(30, 32, 55, 52);
+
+        stroke(239, 68, 68, woundAlpha);
+        strokeWeight(3.5);
+        line(-78, -1, -47, 11);
+        line(-68, 11, -34, 25);
+        line(32, 33, 53, 51);
+      }
+
+      if (bandageRollProgress > 0 || careSuccess) {
+        let bAlpha = careSuccess ? 255 : map(bandageRollProgress, 0, 100, 50, 255);
+        push();
+        translate(-45, 12);
+        rotate(-0.2);
+        fill(255, 241, 242, bAlpha);
+        stroke(244, 63, 94, bAlpha);
+        strokeWeight(3);
+        rectMode(CENTER);
+        rect(0, 0, careSuccess ? 56 : map(bandageRollProgress, 0, 100, 10, 56), 26, 8);
+        if (bandageRollProgress >= 100 || careSuccess) {
+          noStroke();
+          fill(239, 68, 68);
+          textSize(16);
+          text("❤️", 0, 1);
+        }
+        pop();
+      }
+
+      push();
+      translate(75, -35);
+      rotate(0.35);
+      fill(254, 243, 199);
+      stroke(180, 130, 80);
+      strokeWeight(2.5);
+      rectMode(CENTER);
+      rect(0, 0, 34, 16, 4);
+      noStroke();
+      fill(220, 38, 38);
+      ellipse(0, 0, 12, 10);
+      pop();
+
+      pop();
+    }
+
+    function drawDraggableBranch(isHover) {
+      push();
+      translate(branchData.x, branchData.y);
+
+      if (isHover || branchData.isDragging) {
+        noStroke();
+        fill(253, 224, 71, 70);
+        ellipse(0, 0, 120, 75);
+      }
+
+      stroke(15, 10, 5, 160);
+      strokeWeight(8);
+      line(-50, -10, 40, 18);
+
+      stroke(101, 55, 25);
+      strokeWeight(7);
+      line(-50, -12, 40, 15);
+
+      strokeWeight(4.5);
+      line(-20, 0, -5, -25);
+      line(-5, -25, 10, -22);
+      line(-35, -7, -42, -28);
+
+      stroke(180, 115, 45);
+      strokeWeight(2.2);
+      line(-46, -11, 35, 14);
+
+      noStroke();
+      fill(74, 222, 128);
+      push();
+      translate(-5, -24);
+      rotate(-0.5);
+      ellipse(0, 0, 18, 9);
+      fill(34, 197, 94);
+      triangle(-9, 0, 9, -3, 9, 3);
+      pop();
+
+      push();
+      translate(20, 20);
+      rotate(0.65);
+      fill(22, 163, 74);
+      ellipse(0, 0, 15, 8);
+      pop();
+
+      pop();
+    }
+
+    function drawCleanDogSprite(targetImg, isLoaded, baseHeight) {
+      if (!baseHeight) baseHeight = CLEAN_DOG_BASE_HEIGHT;
+
+      let happyBreath = sin(frameCount * 0.065);
+      let scaleW = map(happyBreath, -1, 1, 0.985, 1.015);
+      let scaleH = map(happyBreath, -1, 1, 1.015, 0.985);
+      let floatY = happyBreath * 2.2;
+
+      push();
+      translate(0, floatY);
+      scale(scaleW, scaleH);
+
+      if ((isLoaded || (targetImg && targetImg.width > 0)) && targetImg && targetImg.width > 0 && targetImg.height > 0) {
+        let aspect = targetImg.width / targetImg.height;
+        let baseWidth = baseHeight * aspect;
+        image(targetImg, 0, 0, baseWidth, baseHeight);
+      } else {
+        drawFallbackCleanDog(baseHeight);
+      }
+      pop();
+    }
+
+    function drawFallbackDog(w, h) {
+      fill(PALETTE.dogBrown);
+      noStroke();
+      ellipse(-25, 20, w * 0.52, h * 0.48);
+      ellipse(45, -5, w * 0.35, h * 0.42);
+      fill(PALETTE.dogEyeDark);
+      ellipse(75, 5, w * 0.13, h * 0.28);
+      fill(255);
+      rect(15, 45, 40, 26, 5);
+      fill(255);
+      textSize(14);
+      text("🐶 狗狗救援中", 0, -60);
+    }
+
+    function drawFallbackCleanDog(baseHeight) {
+      fill(PALETTE.dogCleanHighlight);
+      noStroke();
+      ellipse(-25, 20, 160, 105);
+      ellipse(50, -5, 105, 95);
+      fill(PALETTE.dogEyeDark);
+      ellipse(80, 5, 38, 65);
+      fill('#EF4444');
+      triangle(8, 55, 34, 45, 34, 65);
+      triangle(60, 55, 34, 45, 34, 65);
+      circle(34, 55, 13);
+      fill(255);
+      textSize(15);
+      text("✨ 變身乾淨！", 0, -65);
+    }
+
+    // ==========================================
+    // 2. 第一階段進度條
+    // ==========================================
+    function drawLoadingStoryScene() {
+      let elapsed = (millis() - loadingStartTime) / 1000;
+      let progress = constrain(map(elapsed, 0, LOADING_DURATION, 0, 100), 0, 100);
+
+      if (progress >= 90) {
+        let fadeFactor = map(progress, 90, 100, 0, 1);
+        bgmTargetVolume = 0.5 * (1 - fadeFactor);
+        rainTargetVolume = 0.65 * fadeFactor;
+        if (rainElement && rainElement.paused && isMusicPlaying) safePlayAudio(rainElement);
+      }
+
+      drawGenericProgressBar("正在前往冒險旅程...", progress);
+
+      if (elapsed >= LOADING_DURATION) {
+        currentScene = 'STORY';
+        storyStartTime = millis();
+        resetBranchPosition();
+        if (bgmElement) bgmElement.pause();
+      }
+    }
+
+    // ==========================================
+    // 3. 第二階段進度條
+    // ==========================================
+    function drawLoadingNextScene() {
+      let elapsed = (millis() - loadingNextStartTime) / 1000;
+      let progress = constrain(map(elapsed, 0, LOADING_DURATION, 0, 100), 0, 100);
+
+      if (progress >= 80) {
+        let fadeFactor = map(progress, 80, 100, 0, 1);
+        rainTargetVolume = 0.65 * (1 - fadeFactor);
+        bgmTargetVolume = 0.5 * fadeFactor;
+        if (bgmElement && bgmElement.paused && isMusicPlaying) safePlayAudio(bgmElement);
+      }
+
+      drawGenericProgressBar("正在進入幼犬護理中心...", progress);
+
+      if (elapsed >= LOADING_DURATION) {
+        currentScene = 'STAGE_SELECT';
+        if (rainElement) rainElement.pause();
+      }
+    }
+
+    // ==========================================
+    // 沐浴前進度條（已修復卡頓）
+    // ==========================================
+    function drawLoadingBathScene() {
+      let elapsed = (millis() - loadingBathStartTime) / 1000;
+      let progress = constrain(map(elapsed, 0, LOADING_DURATION, 0, 100), 0, 100);
+
+      drawGenericProgressBar("正在準備溫泉水與沐浴用品...", progress);
+
+      if (elapsed >= LOADING_DURATION) {
+        resetBathSystem();
+        currentScene = 'BATH_PLAYING';
+      }
+    }
+
+    // ==========================================
+    // 更衣室前進度條
+    // ==========================================
+    function drawLoadingDressScene() {
+      let elapsed = (millis() - loadingDressStartTime) / 1000;
+      let progress = constrain(map(elapsed, 0, LOADING_DURATION, 0, 100), 0, 100);
+
+      drawGenericProgressBar("正在前往時尚更衣室...", progress);
+
+      if (elapsed >= LOADING_DURATION) {
+        resetDressSystem();
+        currentScene = 'DRESS_PLAYING';
+      }
+    }
+
+    function drawGenericProgressBar(titleText, percent) {
+      let cx = V_WIDTH / 2;
+      let cy = V_HEIGHT / 2 + 10;
+      let w = 460;
+      let h = 36;
+
+      push();
+      rectMode(CENTER);
+
+      fill(PALETTE.jellyBlueDark);
+      rect(cx, cy + 4, w + 12, h + 12, 24);
+
+      fill('#FCE7F3');
+      stroke(PALETTE.jellyBlueBorder);
+      strokeWeight(3.5);
+      rect(cx, cy, w + 4, h + 4, 20);
+
+      let fillWidth = map(percent, 0, 100, 0, w);
+
+      if (fillWidth > 6) {
+        rectMode(CORNER);
+        let startX = cx - w / 2;
+        let startY = cy - h / 2;
+
+        fill(PALETTE.jellyBlueBorder);
+        noStroke();
+        rect(startX, startY + 2, fillWidth, h, 16);
+
+        fill(PALETTE.jellyBlue);
+        rect(startX, startY, fillWidth, h, 16);
+
+        fill(255, 255, 255, 120);
+        rect(startX + 4, startY + 3, max(0, fillWidth - 8), h * 0.38, 8);
+      }
+      pop();
+
+      fill(255);
+      textSize(26);
+      textStyle(BOLD);
+      text(titleText, V_WIDTH / 2, V_HEIGHT / 2 - 50);
+
+      fill(PALETTE.textYellow);
+      textSize(24);
+      text(floor(percent) + "%", V_WIDTH / 2, V_HEIGHT / 2 + 65);
+    }
+
+    // ==========================================
+    // 4. 故事模式
+    // ==========================================
+    function drawStoryScene() {
+      let storyElapsed = (millis() - storyStartTime) / 1000;
+      let vm = getVirtualMouse();
+
+      let walkBobY = (storyElapsed < 5.0) ? sin(frameCount * 0.18) * 11 : sin(frameCount * 0.04) * 2;
+      let walkSwayX = (storyElapsed < 5.0) ? cos(frameCount * 0.09) * 5 : 0;
+
+      push();
+      translate(walkSwayX, walkBobY);
+
+      drawTyphoonCenterElements();
+
+      if (storyElapsed >= 5.0) {
+        let dogFadeAlpha = map(storyElapsed, 5.0, 5.8, 0, 255, true);
+        push();
+        tint(255, dogFadeAlpha);
+
+        fill(15, 23, 42, 130);
+        noStroke();
+        ellipse(V_WIDTH / 2, 470, 320, 55);
+
+        let dogBaseX = V_WIDTH / 2;
+        let dogBaseY = 405;
+
+        translate(dogBaseX, dogBaseY);
+        drawInjuredDogSprite(true);
+
+        if (branchData.isDragging) {
+          branchData.x = vm.x - dogBaseX - branchData.dragOffsetX;
+          branchData.y = vm.y - dogBaseY - branchData.dragOffsetY;
+          if (branchData.y > 55 || abs(branchData.x) > 110) branchData.isRemoved = true;
+        }
+
+        let branchWorldX = dogBaseX + branchData.x;
+        let branchWorldY = dogBaseY + branchData.y;
+        let isBranchHover = dist(vm.x, vm.y, branchWorldX, branchWorldY) < 55;
+
+        drawDraggableBranch(isBranchHover);
+
+        pop();
+        noTint();
+      }
+
+      pop();
+
+      if (storyElapsed >= 10.0) {
+        let bubbleAlpha = map(storyElapsed, 10.0, 10.5, 0, 255, true);
+        let bubbleY = map(storyElapsed, 10.0, 10.5, 130, 110, true);
+        let tipDialogue = branchData.isRemoved 
+          ? "太好了！樹枝移開了，我們來幫助牠吧" 
+          : "狗狗看起來受傷了，幫牠把樹枝移開到地面吧！";
+        drawStoryDialogueBox(V_WIDTH / 2, bubbleY, tipDialogue, bubbleAlpha);
+      }
+
+      if (storyElapsed >= 10.0 && branchData.isRemoved) {
+        let isNextHover = vm.x > 605 && vm.x < 745 && vm.y > 480 && vm.y < 540;
+        drawNextJellyButton(675, 510, 135, 52, "NEXT ➜", isNextHover);
+      } else if (storyElapsed >= 10.0 && !branchData.isRemoved) {
+        push();
+        fill(253, 224, 71, 230);
+        textSize(15);
+        textStyle(BOLD);
+        text("👇 請拖曳樹枝至地面", V_WIDTH / 2 + 10, 300);
+        pop();
+      }
+
+      fill(255, 180);
+      textSize(14);
+      text("今日是颱風天...", V_WIDTH / 2, 38);
+    }
+
+    function drawTyphoonCenterElements() {
+      noStroke();
+      fill(PALETTE.puddleColor);
+      ellipse(V_WIDTH * 0.45, 470, 480, 95);
+      ellipse(V_WIDTH * 0.8, 520, 260, 55);
+
+      drawStreetLamp(V_WIDTH / 2 - 130, 160);
+    }
+
+    function drawStreetLamp(lx, ly) {
+      push();
+      stroke(30, 41, 59);
+      strokeWeight(9);
+      line(lx, ly + 250, lx, ly);
+      strokeWeight(5);
+      line(lx, ly, lx + 70, ly - 30);
+
+      noStroke();
+      fill(51, 65, 85);
+      arc(lx + 70, ly - 30, 50, 26, PI, TWO_PI);
+
+      fill(253, 224, 71, 35);
+      beginShape();
+      vertex(lx + 70, ly - 20);
+      vertex(lx - 120, 520);
+      vertex(lx + 260, 520);
+      endShape(CLOSE);
+
+      fill(254, 240, 138, 220);
+      circle(lx + 70, ly - 18, 16);
+      pop();
+    }
+
+    function drawStoryDialogueBox(cx, cy, message, alphaVal) {
+      push();
+      drawingContext.globalAlpha = alphaVal / 255;
+      translate(cx, cy);
+
+      fill(0, 0, 0, 60);
+      noStroke();
+      rect(-290, -32 + 5, 580, 72, 24);
+
+      fill(255, 255, 255, 245);
+      stroke(PALETTE.jellyBlue);
+      strokeWeight(3.5);
+      rect(-290, -36, 580, 72, 22);
+
+      triangle(-20, 35, 0, 52, 20, 35);
+      noStroke();
+      rect(-18, 30, 36, 8);
+
+      fill(PALETTE.charcoal);
+      textSize(20);
+      textStyle(BOLD);
+      text(message, 0, 0);
+      pop();
+    }
+
+    function drawNextJellyButton(x, y, w, h, label, isHover) {
+      push();
+      rectMode(CENTER);
+
+      fill(PALETTE.jellyBlueDark);
+      rect(x, y + 4, w + 8, h + 8, 18);
+
+      fill(isHover ? '#7DD3FC' : PALETTE.jellyBlue);
+      stroke(PALETTE.jellyBlueBorder);
+      strokeWeight(2.5);
+      rect(x, y, w, h, 16);
+
+      noStroke();
+      fill(255, 255, 255, 100);
+      ellipse(x, y - h * 0.22, w * 0.72, h * 0.35);
+
+      textSize(22);
+      textStyle(BOLD);
+      fill(PALETTE.jellyBlueDark);
+      text(label, x, y + 2);
+      fill(255);
+      text(label, x, y);
+      pop();
+    }
+
+    // ==========================================
+    // 5. 三合一選關卡畫面
+    // ==========================================
+    function drawStageSelectScene() {
+      push();
+      resetMatrix();
+
+      let imgW, imgH, drawX, drawY;
+
+      if ((menuBgLoaded || (menuBgImg && menuBgImg.width > 0)) && menuBgImg && menuBgImg.width > 0) {
+        let scaleFactor = max(width / menuBgImg.width, height / menuBgImg.height);
+        imgW = menuBgImg.width * scaleFactor;
+        imgH = menuBgImg.height * scaleFactor;
+        drawX = (width - imgW) / 2;
+        drawY = (height - imgH) / 2;
+
+        imageMode(CORNER);
+        image(menuBgImg, drawX, drawY, imgW, imgH);
+      } else {
+        imgW = width;
+        imgH = height;
+        drawX = 0;
+        drawY = 0;
+        drawFullscreenFallbackBoard();
+      }
+
+      let cardY = drawY + imgH * 0.225;
+      let cardH = imgH * 0.585;
+
+      let aidX = drawX + imgW * 0.125;
+      let aidW = imgW * 0.245;
+
+      let bathX = drawX + imgW * 0.385;
+      let bathW = imgW * 0.242;
+
+      let dressX = drawX + imgW * 0.638;
+      let dressW = imgW * 0.242;
+
+      let isFirstAidHover = mouseX > aidX && mouseX < (aidX + aidW) && mouseY > cardY && mouseY < (cardY + cardH);
+      if (isFirstAidHover) {
+        push();
+        noFill();
+        stroke(254, 240, 138, 230);
+        strokeWeight(max(4, 7 * (width / 1200)));
+        rect(aidX, cardY, aidW, cardH, 26 * (imgW / 1200));
+
+        fill(255, 235, 59);
+        noStroke();
+        textSize(max(14, 18 * (width / 1200)));
+        textStyle(BOLD);
+        textAlign(CENTER, CENTER);
+        text("點擊進入急救 ➜", aidX + aidW / 2, cardY + cardH - 24);
+        pop();
+      }
+
+      let isBathHover = mouseX > bathX && mouseX < (bathX + bathW) && mouseY > cardY && mouseY < (cardY + cardH);
+      if (unlockedStages.bath && isBathHover) {
+        push();
+        noFill();
+        stroke(56, 189, 248, 230);
+        strokeWeight(max(4, 7 * (width / 1200)));
+        rect(bathX, cardY, bathW, cardH, 26 * (imgW / 1200));
+
+        fill(56, 189, 248);
+        noStroke();
+        textSize(max(14, 18 * (width / 1200)));
+        textStyle(BOLD);
+        textAlign(CENTER, CENTER);
+        text("點擊開始沐浴 ➜", bathX + bathW / 2, cardY + cardH - 24);
+        pop();
+      } else if (!unlockedStages.bath) {
+        drawDynamicLockedOverlay(bathX, cardY, bathW, cardH, imgW);
+      }
+
+      let isDressHover = mouseX > dressX && mouseX < (dressX + dressW) && mouseY > cardY && mouseY < (cardY + cardH);
+      if (unlockedStages.dressUp && isDressHover) {
+        push();
+        noFill();
+        stroke(168, 85, 247, 230);
+        strokeWeight(max(4, 7 * (width / 1200)));
+        rect(dressX, cardY, dressW, cardH, 26 * (imgW / 1200));
+
+        fill(168, 85, 247);
+        noStroke();
+        textSize(max(14, 18 * (width / 1200)));
+        textStyle(BOLD);
+        textAlign(CENTER, CENTER);
+        text("點擊進入更衣室 ➜", dressX + dressW / 2, cardY + cardH - 24);
+        pop();
+      } else if (!unlockedStages.dressUp) {
+        drawDynamicLockedOverlay(dressX, cardY, dressW, cardH, imgW);
+      }
+
+      if (millis() < lockTipTimer) {
+        push();
+        rectMode(CENTER);
+        fill(15, 23, 42, 230);
+        stroke(251, 191, 36);
+        strokeWeight(2);
+        rect(width / 2, height * 0.9, max(300, 380 * (width / 1200)), 46, 23);
+        fill(255);
+        noStroke();
+        textSize(max(14, 17 * (width / 1200)));
+        textStyle(BOLD);
+        textAlign(CENTER, CENTER);
+        text(lockTipMsg, width / 2, height * 0.9);
+        pop();
+      }
+
+      pop();
+    }
+
+    function drawDynamicLockedOverlay(x, y, w, h, imgW) {
+      push();
+      noStroke();
+      fill(30, 41, 59, 165);
+      rect(x, y, w, h, 26 * (imgW / 1200));
+
+      let cx = x + w / 2;
+      let cy = y + h / 2 + 10;
+      let badgeW = max(90, 115 * (imgW / 1200));
+      let badgeH = max(45, 56 * (imgW / 1200));
+
+      fill(15, 23, 42, 220);
+      stroke(148, 163, 184);
+      strokeWeight(2);
+      rectMode(CENTER);
+      rect(cx, cy, badgeW, badgeH, 14);
+
+      noStroke();
+      fill(253, 224, 71);
+      textSize(max(16, 22 * (imgW / 1200)));
+      textAlign(CENTER, CENTER);
+      text("🔒", cx, cy - badgeH * 0.18);
+
+      fill(226, 232, 240);
+      textSize(max(11, 13 * (imgW / 1200)));
+      textStyle(BOLD);
+      text("尚未解鎖", cx, cy + badgeH * 0.24);
+      pop();
+    }
+
+    function drawFullscreenFallbackBoard() {
+      fill('#86EFAC');
+      rect(0, 0, width, height);
+      fill('#854D0E');
+      rect(width * 0.05, height * 0.05, width * 0.9, height * 0.9, 20);
+    }
+
+    // ==========================================
+    // 6. 急救照護站（第一關）
+    // ==========================================
+    function drawCarePlayingScene() {
+      let vm = getVirtualMouse();
+
+      drawPinkGlow();
+
+      fill(255);
+      textSize(28);
+      textStyle(BOLD);
+      text("🏥 外科急救手術台", V_WIDTH / 2 - 40, 48);
+
+      let isBackHover = vm.x > 30 && vm.x < 130 && vm.y > 30 && vm.y < 75;
+      drawJellyButton(80, 52, 90, 40, "⮌ 返回", isBackHover);
+
+      let dogExamX = V_WIDTH / 2 - 120;
+      let dogExamY = 320;
+
+      drawMedicalExamTable(dogExamX, dogExamY + 90);
+
+      let isPain = (millis() < painEffectTimer) || (isInjecting && !careTools[1].done);
+
+      push();
+      translate(dogExamX, dogExamY);
+      drawInjuredDogSprite(true, isPain, careSuccess);
+
+      if (!careSuccess) {
+        if (selectedToolIndex === 0 && !careTools[0].done) {
+          drawTargetGuide(-55, 12, 50, "擦拭傷口");
+        } else if (selectedToolIndex === 1 && !careTools[1].done) {
+          drawTargetGuide(10, -25, 40, "長按注射");
+        } else if (selectedToolIndex === 3 && !careTools[3].done) {
+          drawTargetGuide(-45, 12, 55, "滾輪滾動");
+        }
+
+        drawCreepingBugs();
+      }
+      pop();
+
+      if (selectedToolIndex === 2 && !careSuccess) {
+        drawBugJar(jarBounds.x, jarBounds.y, jarBounds.w, jarBounds.h);
+        drawTweezersCursor(vm.x, vm.y, draggedBugIndex !== -1);
+      }
+
+      if (selectedToolIndex === 0 && isWiping && !careTools[0].done) {
+        drawCottonWipeFeedback(vm.x, vm.y);
+      }
+
+      if (selectedToolIndex === 1 && !careTools[1].done) {
+        updateAndDrawInjectionProcess(dogExamX + 10, dogExamY - 25);
+      }
+
+      if (selectedToolIndex === 3 && !careTools[3].done) {
+        drawBandageScrollUI(dogExamX, dogExamY + 140);
+      }
+
+      if (isPain) {
+        updateAndDrawPainTearParticles();
+      }
+
+      if (careSuccess) {
+        drawCareSuccessCelebration();
+      }
+
+      drawCareToolSidebar(vm);
+      drawOperationInstructions(vm);
+    }
+
+    function drawTargetGuide(relX, relY, rad, label) {
+      push();
+      translate(relX, relY);
+      let pulse = sin(frameCount * 0.1) * 4;
+      noFill();
+      stroke(253, 224, 71, 210);
+      strokeWeight(2.5);
+      circle(0, 0, (rad + pulse) * 2);
+      stroke(239, 68, 68, 180);
+      strokeWeight(1.5);
+      line(-rad * 0.4, 0, rad * 0.4, 0);
+      line(0, -rad * 0.4, 0, rad * 0.4);
+
+      fill(255);
+      noStroke();
+      textSize(12);
+      textStyle(BOLD);
+      text(label, 0, rad + 14);
+      pop();
+    }
+
+    function drawCreepingBugs() {
+      for (let i = 0; i < bugs.length; i++) {
+        let b = bugs[i];
+        if (b.inJar) continue;
+
+        if (!b.caught) {
+          b.x += b.vx;
+          b.y += b.vy;
+          if (b.x < -90 || b.x > -10) b.vx *= -1;
+          if (b.y < -35 || b.y > 35) b.vy *= -1;
+        }
+
+        push();
+        translate(b.x, b.y);
+
+        noStroke();
+        fill(24, 18, 12);
+        ellipse(0, 0, 10, 8);
+        stroke(24, 18, 12);
+        strokeWeight(1.3);
+
+        let legWiggle = sin(frameCount * 0.4 + i) * 2.5;
+        line(-4, -3, -8 + legWiggle, -7);
+        line(0, -3, 0, -8);
+        line(4, -3, 8 - legWiggle, -7);
+        line(-4, 3, -8 - legWiggle, 7);
+        line(0, 3, 0, 8);
+        line(4, 3, 8 + legWiggle, 7);
+        pop();
+      }
+    }
+
+    function drawTweezersCursor(mx, my, isGrabbing) {
+      push();
+      translate(mx, my);
+      rotate(-PI * 0.25);
+
+      let pinch = isGrabbing ? 2 : 10;
+
+      stroke(0, 0, 0, 40);
+      strokeWeight(5);
+      line(-26, -55, 3, 2);
+
+      stroke(148, 163, 184);
+      strokeWeight(5.5);
+      strokeCap(ROUND);
+      line(-25, -60, -8, -25);
+
+      stroke(100, 116, 139);
+      strokeWeight(2);
+      line(-20, -50, -17, -46);
+      line(-18, -44, -15, -40);
+      line(-16, -38, -13, -34);
+
+      stroke(203, 213, 225);
+      strokeWeight(3.5);
+      line(-8, -25, -pinch, 0);
+
+      stroke(148, 163, 184);
+      strokeWeight(3.5);
+      line(-8, -25, pinch, 0);
+
+      stroke(255, 255, 255, 220);
+      strokeWeight(1.5);
+      line(-pinch, -5, -pinch, 0);
+      line(pinch, -5, pinch, 0);
+
+      if (isGrabbing) {
+        noStroke();
+        fill(24, 18, 12);
+        ellipse(0, 2, 9, 7);
+        stroke(24, 18, 12);
+        strokeWeight(1.2);
+        let leg = sin(frameCount * 0.6) * 2;
+        line(-3, 0, -6 + leg, -4);
+        line(3, 0, 6 - leg, -4);
+      }
+
+      pop();
+    }
+
+    function drawBugJar(jx, jy, jw, jh) {
+      push();
+      translate(jx, jy);
+
+      noStroke();
+      fill(0, 0, 0, 25);
+      ellipse(jw / 2, jh + 6, jw * 0.9, 16);
+
+      fill(224, 242, 254, 150);
+      stroke(186, 230, 253);
+      strokeWeight(3.5);
+      rect(0, 14, jw, jh - 14, 16);
+
+      fill(202, 138, 4);
+      stroke(161, 98, 7);
+      strokeWeight(2);
+      rect(jw * 0.1, 0, jw * 0.8, 14, 4);
+
+      noStroke();
+      fill(255, 255, 255, 140);
+      rect(jw * 0.15, 22, 8, jh - 34, 4);
+
+      fill(30, 41, 59, 180);
+      textSize(12);
+      textStyle(BOLD);
+      textAlign(CENTER, CENTER);
+      text("蟲蟲收集罐", jw / 2, jh * 0.42);
+
+      let trappedCount = 0;
+      for (let b of bugs) {
+        if (b.inJar) {
+          trappedCount++;
+          fill(30, 20, 15);
+          circle(jw * 0.3 + trappedCount * 14, jh * 0.72, 8);
+        }
+      }
+
+      fill(2, 132, 199);
+      textSize(13);
+      text(`${trappedCount} / 3 隻`, jw / 2, jh * 0.86);
+
+      pop();
+    }
+
+    function updateAndDrawInjectionProcess(neckX, neckY) {
+      push();
+      let vm = getVirtualMouse();
+
+      if (isInjecting) {
+        if (dist(vm.x, vm.y, neckX, neckY) < 65) {
+          injectProgress = min(100, injectProgress + INJECT_SPEED);
+          painEffectTimer = millis() + 400;
+
+          if (injectProgress >= 100) {
+            careTools[1].done = true;
+            isInjecting = false;
+            checkAllDone();
+          }
+        } else {
+          isInjecting = false;
+        }
+      }
+
+      if (injectProgress > 0) {
+        rectMode(CENTER);
+        let barX = neckX;
+        let barY = neckY - 60;
+        let barW = 120;
+        let barH = 18;
+
+        fill(15, 23, 42, 220);
+        stroke(56, 189, 248);
+        strokeWeight(2);
+        rect(barX, barY, barW, barH, 9);
+
+        let fillW = map(injectProgress, 0, 100, 0, barW - 6);
+        if (fillW > 0) {
+          noStroke();
+          fill(56, 189, 248);
+          rect(barX - (barW - 6 - fillW) / 2, barY, fillW, barH - 6, 6);
+        }
+
+        fill(255);
+        noStroke();
+        textSize(11);
+        textStyle(BOLD);
+        text(`注射推藥中 ${floor(injectProgress)}%`, barX, barY - 16);
+
+        push();
+        translate(neckX, neckY);
+        rotate(-PI * 0.35);
+
+        stroke(200);
+        strokeWeight(2);
+        line(0, 0, 0, 20);
+
+        fill(255, 255, 255, 220);
+        stroke(100, 116, 139);
+        strokeWeight(2);
+        rect(0, -22, 16, 44, 4);
+
+        let liquidH = map(injectProgress, 0, 100, 36, 0);
+        if (liquidH > 0) {
+          fill(56, 189, 248, 200);
+          noStroke();
+          rect(0, -4 + liquidH / 2 - 36, 12, liquidH, 2);
+        }
+
+        let pistonY = map(injectProgress, 0, 100, -44, -22);
+        stroke(71, 85, 105);
+        strokeWeight(3);
+        line(0, pistonY - 20, 0, pistonY);
+        line(-8, pistonY - 20, 8, pistonY - 20);
+        pop();
+      }
+
+      pop();
+    }
+
+    function drawCottonWipeFeedback(mx, my) {
+      push();
+      translate(mx, my);
+      noStroke();
+      fill(255, 255, 255, 230);
+      circle(0, 0, 28);
+      circle(-10, 4, 20);
+      circle(10, 4, 20);
+      circle(0, -8, 18);
+
+      fill(15, 23, 42, 220);
+      rect(-35, -36, 70, 18, 9);
+      fill(254, 240, 138);
+      textSize(11);
+      textStyle(BOLD);
+      text(`已擦拭 ${cottonWipes} / 5 下`, 0, -28);
+      pop();
+    }
+
+    function drawBandageScrollUI(x, y) {
+      push();
+      rectMode(CENTER);
+      fill(15, 23, 42, 220);
+      stroke(244, 63, 94);
+      strokeWeight(2);
+      rect(x, y, 260, 42, 21);
+
+      let barW = 220;
+      let barH = 8;
+      fill(75, 85, 99);
+      rect(x, y + 28, barW, barH, 4);
+      let fillW = map(bandageRollProgress, 0, 100, 0, barW);
+      fill(244, 63, 94);
+      rect(x - (barW - fillW) / 2, y + 28, fillW, barH, 4);
+      pop();
+    }
+
+    function drawOperationInstructions(vm) {
+      fill(255, 240);
+      textSize(16);
+      textStyle(BOLD);
+
+      if (careSuccess) {
+        text("🎉 狗狗包紮完成！請點擊【NEXT】", V_WIDTH / 2 - 100, 560);
+      } else {
+        if (selectedToolIndex === 0) {
+          text("👉 請按住【消毒棉花】，在背部傷口來回拖曳擦拭 5 下", V_WIDTH / 2 - 100, 560);
+        } else if (selectedToolIndex === 1) {
+          text("👉 請在狗狗【脖子皮下處】按住滑鼠不放，直到藥水推入完畢！", V_WIDTH / 2 - 100, 560);
+        } else if (selectedToolIndex === 2) {
+          text("👉 用【金屬鑷子】對準小蟲按住夾起，拖曳夾進右側罐子！", V_WIDTH / 2 - 100, 560);
+        } else if (selectedToolIndex === 3) {
+          text("👉 選取繃帶後，在傷口上方【向下滾動滑鼠滾輪】纏繞包紮！", V_WIDTH / 2 - 100, 560);
+        }
+      }
+    }
+
+    function drawMedicalExamTable(tx, ty) {
+      push();
+      rectMode(CENTER);
+
+      fill(0, 0, 0, 30);
+      ellipse(tx, ty + 70, 450, 40);
+
+      fill(148, 163, 184);
+      stroke(100, 116, 139);
+      strokeWeight(3);
+      rect(tx, ty + 40, 40, 60, 6);
+      rect(tx, ty + 70, 160, 16, 8);
+
+      fill(248, 250, 252);
+      stroke(203, 213, 225);
+      strokeWeight(4);
+      rect(tx, ty, 420, 45, 16);
+
+      fill(224, 242, 254);
+      noStroke();
+      rect(tx, ty - 8, 390, 24, 10);
+
+      fill(56, 189, 248);
+      stroke(2, 132, 199);
+      strokeWeight(2);
+      circle(tx - 195, ty - 18, 14);
+      circle(tx + 195, ty - 18, 14);
+      pop();
+    }
+
+    function drawCareToolSidebar(vm) {
+      let panelX = 645;
+      let panelY = 85;
+      let panelW = 135;
+      let panelH = 465;
+
+      push();
+      fill(255, 255, 255, 225);
+      stroke(PALETTE.jellyBlueBorder);
+      strokeWeight(3);
+      rect(panelX, panelY, panelW, panelH, 20);
+
+      fill(PALETTE.jellyBlueDark);
+      noStroke();
+      textSize(16);
+      textStyle(BOLD);
+      text("醫療工具箱", panelX + panelW / 2, panelY + 24);
+
+      let btnStartY = panelY + 50;
+      let btnH = 92;
+
+      for (let i = 0; i < careTools.length; i++) {
+        let tool = careTools[i];
+        let by = btnStartY + i * (btnH + 8);
+        let isHover = vm.x > panelX + 10 && vm.x < panelX + panelW - 10 && vm.y > by && vm.y < by + btnH;
+        let isSelected = (selectedToolIndex === i);
+
+        strokeWeight(2.5);
+        if (tool.done) {
+          fill(220, 252, 231);
+          stroke(34, 197, 94);
+        } else if (isSelected) {
+          fill(254, 240, 138);
+          stroke(234, 179, 8);
+        } else {
+          fill(248, 250, 252);
+          stroke(203, 213, 225);
+        }
+
+        rect(panelX + 10, by, panelW - 20, btnH, 14);
+
+        textAlign(CENTER, CENTER);
+        textSize(28);
+        noStroke();
+        text(tool.icon, panelX + panelW / 2, by + 26);
+
+        textSize(13);
+        textStyle(BOLD);
+        fill(tool.done ? '#15803D' : (isSelected ? '#854D0E' : PALETTE.charcoal));
+        text(tool.name, panelX + panelW / 2, by + 56);
+
+        textSize(11);
+        if (tool.done) {
+          fill(22, 163, 74);
+          text("✔ 已完成", panelX + panelW / 2, by + 76);
+        } else {
+          fill(148, 163, 184);
+          text(tool.desc, panelX + panelW / 2, by + 76);
+        }
+      }
+      pop();
+    }
+
+    function updateAndDrawPainTearParticles() {
+      push();
+      noStroke();
+      fill(186, 230, 253, 220);
+
+      if (frameCount % 2 === 0) {
+        painTears.push({
+          x: V_WIDTH / 2 - 120 + random(-30, 30),
+          y: 280 + random(-10, 10),
+          vx: random(-3.5, 3.5),
+          vy: random(-4.5, -1.0),
+          size: random(6, 12),
+          life: 255
+        });
+      }
+
+      for (let i = painTears.length - 1; i >= 0; i--) {
+        let p = painTears[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.28;
+        p.life -= 12;
+
+        circle(p.x, p.y, p.size);
+        if (p.life <= 0) painTears.splice(i, 1);
+      }
+      pop();
+    }
+
+    function drawCareSuccessCelebration() {
+      let vm = getVirtualMouse();
+      celebrateTimer++;
+
+      push();
+      if (celebrateTimer % 10 === 0) {
+        sparkles.push({
+          x: V_WIDTH / 2 - 120 + random(-150, 150),
+          y: 320 + random(-70, 40),
+          size: random(8, 16),
+          life: 240,
+          rot: random(TWO_PI),
+          rotSpeed: random(-0.05, 0.05)
+        });
+      }
+
+      let btnHover = vm.x > V_WIDTH / 2 - 210 && vm.x < V_WIDTH / 2 - 10 && vm.y > 490 && vm.y < 545;
+      drawJellyButton(V_WIDTH / 2 - 110, 515, 200, 50, "NEXT ➜", btnHover);
+      pop();
+    }
+
+    // ==========================================
+    // 7. 第二關 浴室沐浴模式
+    // ==========================================
+    function drawFullscreenBathScene() {
+      push();
+      resetMatrix();
+
+      drawFullscreenBathroomBackground();
+      drawBathroomDecorations();
+
+      fill(PALETTE.charcoal);
+      textSize(max(20, 30 * (width / 1200)));
+      textStyle(BOLD);
+      text("🛁 幼犬泡沫沐浴間", width / 2, max(36, 48 * (height / 800)));
+
+      let isBackHover = mouseX > 25 && mouseX < 135 && mouseY > 20 && mouseY < 65;
+      drawJellyButton(80, 42, 95, 38, "⮌ 返回", isBackHover);
+
+      let tubX = width * 0.42;
+      let tubY = height * 0.63;
+
+      if (!isColorConfirmed) {
+        drawLargeTubColorPickerDirect();
+        drawBathtubBackDirect(tubX, tubY, selectedTubColor);
+        drawBathtubFrontDirect(tubX, tubY, selectedTubColor);
+      } else {
+        drawBathtubBackDirect(tubX, tubY, selectedTubColor);
+        drawBathingDogSystemDirect(tubX, tubY);
+        drawBathtubFrontDirect(tubX, tubY, selectedTubColor);
+
+        if (isShowerActive) drawShowerWaterAnimationDirect(tubX, tubY - height * 0.12);
+        if (isDryerActive) drawDryerWindAnimationDirect(tubX, tubY - height * 0.12);
+
+        drawBathToolSidebarDirect();
+
+        if (isShampooDragging) {
+          drawDraggableShampooBottleDirect(mouseX, mouseY, tubX, tubY);
+        }
+      }
+
+      if (bathSuccess) {
+        let btnW = max(220, 260 * (width / 1200));
+        let btnH = max(45, 52 * (height / 800));
+        let btnX = width * 0.42;
+        let btnY = height * 0.88;
+        let isDoneHover = mouseX > btnX - btnW / 2 && mouseX < btnX + btnW / 2 &&
+                          mouseY > btnY - btnH / 2 && mouseY < btnY + btnH / 2;
+        drawJellyButton(btnX, btnY, btnW, btnH, "NEXT ➜", isDoneHover);
+      } else {
+        drawBathInstructionsDirect();
+      }
+      pop();
+    }
+
+    function drawFullscreenBathroomBackground() {
+      push();
+      let wallH = height * 0.68;
+      stroke(224, 242, 254, 160);
+      strokeWeight(1.5);
+      let stepX = max(40, width / 24);
+      let stepY = max(35, wallH / 12);
+      for (let x = 0; x < width; x += stepX) line(x, 0, x, wallH);
+      for (let y = 0; y < wallH; y += stepY) line(0, y, width, y);
+
+      fill('#E0F2FE');
+      noStroke();
+      rect(0, wallH, width, height - wallH);
+      stroke(186, 230, 253);
+      strokeWeight(3);
+      line(0, wallH, width, wallH);
+      for (let x = -50; x < width + 100; x += stepX * 1.5) {
+        line(x, wallH, x + 40, height);
+      }
+      pop();
+    }
+
+    function drawBathroomDecorations() {
+      push();
+      let s = min(width / 950, height / 700);
+
+      let mirrorX = width * 0.42;
+      let mirrorY = height * 0.22;
+      fill(255, 255, 255, 210);
+      stroke('#BAE6FD');
+      strokeWeight(4 * s);
+      ellipse(mirrorX, mirrorY, 180 * s, 100 * s);
+      noStroke();
+      fill(255, 255, 255, 120);
+      arc(mirrorX, mirrorY, 160 * s, 85 * s, -PI * 0.8, -PI * 0.2);
+
+      let duckX = width * 0.16;
+      let duckY = height * 0.74;
+
+      noStroke();
+      fill(186, 230, 253, 160);
+      ellipse(duckX, duckY + 22 * s, 100 * s, 32 * s);
+
+      push();
+      translate(duckX, duckY);
+      fill('#FACC15');
+      stroke('#CA8A04');
+      strokeWeight(3 * s);
+      ellipse(0, 0, 58 * s, 42 * s);
+      circle(20 * s, -20 * s, 36 * s);
+      fill('#FB923C');
+      triangle(32 * s, -22 * s, 32 * s, -12 * s, 48 * s, -17 * s);
+      fill(15, 23, 42);
+      noStroke();
+      circle(24 * s, -22 * s, 6 * s);
+      fill(255);
+      circle(23 * s, -24 * s, 2 * s);
+      pop();
+
+      let rackX = width * 0.09;
+      let rackY = height * 0.32;
+
+      stroke(148, 163, 184);
+      strokeWeight(7 * s);
+      line(rackX - 50 * s, rackY, rackX + 80 * s, rackY);
+      fill(100, 116, 139);
+      rect(rackX - 54 * s, rackY - 8 * s, 10 * s, 16 * s, 4 * s);
+      rect(rackX + 76 * s, rackY - 8 * s, 10 * s, 16 * s, 4 * s);
+
+      fill('#FEF08A');
+      stroke('#FDE047');
+      strokeWeight(2.5 * s);
+      rect(rackX - 35 * s, rackY, 48 * s, 98 * s, 8 * s);
+      stroke('#F59E0B');
+      line(rackX - 35 * s, rackY + 75 * s, rackX + 13 * s, rackY + 75 * s);
+      line(rackX - 35 * s, rackY + 84 * s, rackX + 13 * s, rackY + 84 * s);
+
+      fill('#BAE6FD');
+      stroke('#7DD3FC');
+      strokeWeight(2.5 * s);
+      rect(rackX + 22 * s, rackY, 42 * s, 78 * s, 8 * s);
+      stroke('#0284C7');
+      line(rackX + 22 * s, rackY + 60 * s, rackX + 64 * s, rackY + 60 * s);
+
+      let stoolX = width * 0.68;
+      let stoolY = height * 0.77;
+
+      noStroke();
+      fill(0, 0, 0, 25);
+      ellipse(stoolX, stoolY + 30 * s, 95 * s, 25 * s);
+
+      fill('#FDE68A');
+      stroke('#D97706');
+      strokeWeight(3.5 * s);
+      rect(stoolX - 30 * s, stoolY, 12 * s, 34 * s, 5 * s);
+      rect(stoolX + 18 * s, stoolY, 12 * s, 34 * s, 5 * s);
+      ellipse(stoolX, stoolY, 95 * s, 28 * s);
+
+      fill('#FDA4AF');
+      stroke('#F43F5E');
+      strokeWeight(2 * s);
+      rect(stoolX - 28 * s, stoolY - 24 * s, 26 * s, 16 * s, 6 * s);
+
+      fill('#6EE7B7');
+      stroke('#10B981');
+      rect(stoolX + 8 * s, stoolY - 28 * s, 24 * s, 22 * s, 7 * s);
+
+      pop();
+    }
+
+    function drawLargeTubColorPickerDirect() {
+      let panelW = min(600, width * 0.78);
+      let panelH = max(135, 150 * (height / 800));
+      let panelX = (width - panelW) / 2;
+      let panelY = max(70, height * 0.12);
+
+      push();
+      fill(255, 255, 255, 250);
+      stroke(PALETTE.jellyBlueBorder);
+      strokeWeight(3.5);
+      rect(panelX, panelY, panelW, panelH, 24);
+
+      let row1Y = panelY + panelH * 0.32;
+      fill(PALETTE.charcoal);
+      noStroke();
+      textSize(max(15, 18 * (width / 1200)));
+      textStyle(BOLD);
+      textAlign(RIGHT, CENTER);
+      text("🎨 請先選擇浴缸顏色：", panelX + panelW * 0.38, row1Y);
+
+      let startX = panelX + panelW * 0.44;
+      let gap = (panelW * 0.50) / 6;
+
+      for (let i = 0; i < TUB_COLORS.length; i++) {
+        let col = TUB_COLORS[i];
+        let cx = startX + i * gap;
+        let isSelected = (selectedTubColor.name === col.name);
+
+        fill(col.hex);
+        stroke(isSelected ? '#0284C7' : col.border);
+        strokeWeight(isSelected ? 3.5 : 2);
+        circle(cx, row1Y, isSelected ? 30 : 24);
+
+        if (isSelected) {
+          fill('#0284C7');
+          noStroke();
+          circle(cx, row1Y, 8);
+        }
+      }
+
+      let btnW = min(220, panelW * 0.44);
+      let btnH = 40;
+      let btnX = width / 2;
+      let btnY = panelY + panelH * 0.74;
+      let isOkHover = mouseX > btnX - btnW / 2 && mouseX < btnX + btnW / 2 &&
+                      mouseY > btnY - btnH / 2 && mouseY < btnY + btnH / 2;
+
+      rectMode(CENTER);
+      fill(PALETTE.jellyBlueDark);
+      rect(btnX, btnY + 4, btnW + 6, btnH + 6, 18);
+      fill(isOkHover ? '#7DD3FC' : PALETTE.jellyBlue);
+      stroke(PALETTE.jellyBlueBorder);
+      strokeWeight(2.5);
+      rect(btnX, btnY, btnW, btnH, 16);
+      noStroke();
+      fill(255, 255, 255, 110);
+      ellipse(btnX, btnY - btnH * 0.22, btnW * 0.72, btnH * 0.35);
+
+      fill(PALETTE.jellyBlueDark);
+      textSize(17);
+      textStyle(BOLD);
+      textAlign(CENTER, CENTER);
+      text("確定浴缸顏色 ✔", btnX, btnY + 2);
+      fill(255);
+      text("確定浴缸顏色 ✔", btnX, btnY);
+      pop();
+    }
+
+    function drawBathtubBackDirect(tx, ty, tubCol) {
+      push();
+      translate(tx, ty);
+      let s = min(width / 950, height / 700);
+
+      noStroke();
+      fill(0, 0, 0, 30);
+      ellipse(0, 115 * s, 380 * s, 48 * s);
+
+      fill(148, 163, 184);
+      stroke(100, 116, 139);
+      strokeWeight(2.5 * s);
+      rect(-135 * s, 95 * s, 26 * s, 26 * s, 6 * s);
+      rect(109 * s, 95 * s, 26 * s, 26 * s, 6 * s);
+
+      fill(tubCol.hex);
+      stroke(tubCol.border);
+      strokeWeight(5 * s);
+      beginShape();
+      vertex(-185 * s, 20 * s);
+      bezierVertex(-195 * s, 95 * s, -125 * s, 115 * s, 0, 115 * s);
+      bezierVertex(125 * s, 115 * s, 195 * s, 95 * s, 185 * s, 20 * s);
+      endShape(CLOSE);
+
+      fill('#38BDF8');
+      stroke('#0284C7');
+      strokeWeight(3.5 * s);
+      ellipse(0, 20 * s, 345 * s, 88 * s);
+      pop();
+    }
+
+    function drawBathtubFrontDirect(tx, ty, tubCol) {
+      push();
+      translate(tx, ty);
+      let s = min(width / 950, height / 700);
+
+      noFill();
+      stroke(tubCol.border);
+      strokeWeight(7 * s);
+      arc(0, 18 * s, 365 * s, 95 * s, 0, PI);
+
+      fill(tubCol.hex);
+      stroke(tubCol.border);
+      strokeWeight(5 * s);
+      beginShape();
+      vertex(-185 * s, 20 * s);
+      bezierVertex(-160 * s, 62 * s, -85 * s, 78 * s, 0, 78 * s);
+      bezierVertex(85 * s, 78 * s, 160 * s, 62 * s, 185 * s, 20 * s);
+      bezierVertex(150 * s, 42 * s, 75 * s, 33 * s, 0, 33 * s);
+      bezierVertex(-75 * s, 33 * s, -150 * s, 42 * s, -185 * s, 20 * s);
+      endShape(CLOSE);
+
+      noStroke();
+      fill(255, 255, 255, 140);
+      ellipse(-30 * s, 26 * s, 190 * s, 18 * s);
+      pop();
+    }
+
+    function drawBathingDogSystemDirect(tubX, tubY) {
+      push();
+      let dogBreath = sin(frameCount * 0.08) * 3;
+      let s = min(width / 950, height / 700);
+
+      let drawX, drawY;
+      if (bathDogState.inTub) {
+        drawX = tubX;
+        drawY = tubY - 18 * s + dogBreath;
+      } else {
+        if (!bathDogState.isDragging && (!bathDogState.x || bathDogState.x < 100)) {
+          bathDogState.x = width * 0.76;
+          bathDogState.y = height * 0.60;
+        }
+        drawX = bathDogState.x;
+        drawY = bathDogState.y + dogBreath;
+
+        push();
+        noFill();
+        stroke(251, 191, 36, 220);
+        strokeWeight(3.5);
+        let pulse = sin(frameCount * 0.1) * 6;
+        circle(drawX, drawY, (180 + pulse) * s);
+        fill(15, 23, 42, 220);
+        noStroke();
+        rectMode(CENTER);
+        rect(drawX, drawY - 110 * s, 150 * s, 28 * s, 14 * s);
+        fill(255);
+        textSize(max(11, 13 * s));
+        textStyle(BOLD);
+        text("👆 請拖曳放入浴缸", drawX, drawY - 110 * s);
+        pop();
+      }
+
+      translate(drawX, drawY);
+
+      let targetImg = null;
+      let targetLoaded = false;
+      let dogBaseW = 260 * s;
+
+      if (bathDogState.stage === 1) {
+        targetImg = dirtyDog1Img;
+        targetLoaded = dirtyDog1Loaded;
+      } else if (bathDogState.stage === 2) {
+        targetImg = dirtyDog2Img;
+        targetLoaded = dirtyDog2Loaded;
+      } else {
+        targetImg = dirtyDog3Img;
+        targetLoaded = dirtyDog3Loaded;
+        dogBaseW = 345 * s;
+      }
+
+      if ((targetLoaded || (targetImg && targetImg.width > 0)) && targetImg && targetImg.width > 0) {
+        let aspect = targetImg.width / targetImg.height;
+        let dogBaseH = dogBaseW / aspect;
+        image(targetImg, 0, 0, dogBaseW, dogBaseH);
+      } else {
+        fill(PALETTE.dogBrown);
+        ellipse(0, 0, dogBaseW * 0.7, dogBaseW * 0.5);
+        fill(255);
+        textSize(16);
+        text(`🐶 小狗階段 ${bathDogState.stage}`, 0, 0);
+      }
+
+      if (bathDogState.headBubbles > 0 || bathDogState.bodyBubbles > 0) {
+        drawBathingBubblesDirect(bathDogState.headBubbles, bathDogState.bodyBubbles, s);
+      }
+      pop();
+    }
+
+    function drawBathingBubblesDirect(headAmt, bodyAmt, s) {
+      push();
+      noStroke();
+
+      if (headAmt > 0) {
+        let hCount = floor(map(headAmt, 0, 100, 8, 35));
+        for (let i = 0; i < hCount; i++) {
+          let bx = (sin(i * 1.5) * 55) * s;
+          let by = (-62 + cos(i * 2) * 26) * s;
+          let bs = (14 + (i % 5) * 5) * s;
+          fill(255, 255, 255, 220);
+          circle(bx, by, bs);
+          fill(224, 242, 254, 180);
+          circle(bx - bs * 0.2, by - bs * 0.2, bs * 0.4);
+        }
+      }
+
+      if (bodyAmt > 0) {
+        let bCount = floor(map(bodyAmt, 0, 100, 10, 45));
+        for (let i = 0; i < bCount; i++) {
+          let bx = (-80 + sin(i * 2.1) * 70) * s;
+          let by = (-16 + cos(i * 1.7) * 44) * s;
+          let bs = (16 + (i % 6) * 5) * s;
+          fill(255, 255, 255, 215);
+          circle(bx, by, bs);
+          fill(224, 242, 254, 180);
+          circle(bx - bs * 0.2, by - bs * 0.2, bs * 0.4);
+        }
+      }
+      pop();
+    }
+
+    function drawDraggableShampooBottleDirect(mx, my, tubX, tubY) {
+      push();
+      translate(mx, my);
+
+      let isOverHead = dist(mx, my, tubX, tubY - 60) < 110;
+      let rotAngle = isOverHead ? -HALF_PI : -0.2;
+      rotate(rotAngle);
+
+      fill('#38BDF8');
+      stroke('#0284C7');
+      strokeWeight(3);
+      rectMode(CENTER);
+      rect(0, 0, 42, 78, 12);
+
+      fill('#F8FAFC');
+      rect(0, -48, 16, 18, 4);
+      rect(-10, -55, 18, 7, 3);
+
+      fill(255);
+      noStroke();
+      rect(0, 3, 30, 36, 5);
+      fill('#0369A1');
+      textSize(10);
+      textStyle(BOLD);
+      text("SHAMPOO", 0, 3);
+
+      if (isOverHead) {
+        fill(255, 255, 255, 230);
+        circle(-20, -55, 10);
+        circle(-32, -54, 8);
+        circle(-42, -52, 6);
+      }
+      pop();
+    }
+
+    function drawShowerWaterAnimationDirect(tx, ty) {
+      push();
+      translate(tx + 80, ty - 60);
+
+      stroke(148, 163, 184);
+      strokeWeight(9);
+      line(-45, -45, 0, 0);
+      fill(203, 213, 225);
+      stroke(100, 116, 139);
+      strokeWeight(2.5);
+      arc(0, 0, 40, 26, -PI * 0.7, PI * 0.3);
+
+      stroke('#38BDF8');
+      strokeWeight(3.0);
+      for (let i = 0; i < 20; i++) {
+        let sx = random(-18, 18);
+        let sy = random(5, 22);
+        let len = random(30, 65);
+        line(sx, sy, sx - 30, sy + len);
+      }
+      pop();
+    }
+
+    function drawDryerWindAnimationDirect(tx, ty) {
+      push();
+      translate(tx - 130, ty);
+
+      fill('#F43F5E');
+      stroke('#BE123C');
+      strokeWeight(3.5);
+      rect(0, 0, 56, 34, 10);
+      rect(50, 7, 22, 20, 5);
+      rect(18, 32, 20, 40, 7);
+
+      noFill();
+      stroke(251, 191, 36, 200);
+      strokeWeight(3.5);
+      let waveOffset = sin(frameCount * 0.3) * 7;
+      arc(85, 17 + waveOffset, 34, 50, -PI * 0.3, PI * 0.3);
+      arc(108, 17 - waveOffset, 45, 68, -PI * 0.3, PI * 0.3);
+      arc(132, 17 + waveOffset, 58, 85, -PI * 0.3, PI * 0.3);
+      pop();
+    }
+
+    function drawBathToolSidebarDirect() {
+      let panelW = max(110, width * 0.12);
+      let panelH = min(height * 0.65, 450);
+      let panelX = width - panelW - max(20, width * 0.02);
+      let panelY = height * 0.20;
+
+      push();
+      fill(255, 255, 255, 240);
+      stroke(PALETTE.jellyBlueBorder);
+      strokeWeight(3);
+      rect(panelX, panelY, panelW, panelH, 22);
+
+      fill(PALETTE.jellyBlueDark);
+      noStroke();
+      textSize(max(13, 16 * (width / 1200)));
+      textStyle(BOLD);
+      text("沐浴用品", panelX + panelW / 2, panelY + 26);
+
+      let btnStartY = panelY + 54;
+      let btnH = (panelH - 74) / 3 - 10;
+
+      for (let i = 0; i < bathTools.length; i++) {
+        let tool = bathTools[i];
+        let by = btnStartY + i * (btnH + 10);
+        let isHover = mouseX > panelX + 8 && mouseX < panelX + panelW - 8 && mouseY > by && mouseY < by + btnH;
+        let isCurrent = (bathCurrentStep === tool.step);
+        let isDone = (bathCurrentStep > tool.step) || bathSuccess;
+
+        strokeWeight(2.5);
+        if (isDone) {
+          fill(220, 252, 231);
+          stroke(34, 197, 94);
+        } else if (isCurrent) {
+          fill(254, 240, 138);
+          stroke(234, 179, 8);
+        } else {
+          fill(241, 245, 249);
+          stroke(203, 213, 225);
+        }
+
+        rect(panelX + 8, by, panelW - 16, btnH, 14);
+
+        textAlign(CENTER, CENTER);
+        textSize(max(22, 28 * (width / 1200)));
+        noStroke();
+        text(tool.icon, panelX + panelW / 2, by + btnH * 0.30);
+
+        textSize(max(11, 14 * (width / 1200)));
+        textStyle(BOLD);
+        fill(isDone ? '#15803D' : (isCurrent ? '#854D0E' : '#94A3B8'));
+        text(tool.name, panelX + panelW / 2, by + btnH * 0.64);
+
+        textSize(max(9, 11 * (width / 1200)));
+        if (isDone) {
+          fill(22, 163, 74);
+          text("✔ 已完成", panelX + panelW / 2, by + btnH * 0.86);
+        } else if (isCurrent) {
+          fill('#D97706');
+          text("👉 當前步驟", panelX + panelW / 2, by + btnH * 0.86);
+        } else {
+          fill('#94A3B8');
+          text("🔒 未解鎖", panelX + panelW / 2, by + btnH * 0.86);
+        }
+      }
+      pop();
+    }
+
+    function drawBathInstructionsDirect() {
+      fill(PALETTE.charcoal);
+      textSize(max(14, 18 * (width / 1200)));
+      textStyle(BOLD);
+
+      let textY = height * 0.94;
+      if (!isColorConfirmed) {
+        text("👉 請先選擇喜歡的浴缸顏色，按下【確定浴缸顏色】！", width / 2, textY);
+      } else if (!bathDogState.inTub) {
+        text("👉 顏色已選好！請將右側的小狗【拖曳放入浴缸】中泡澡！", width * 0.45, textY);
+      } else {
+        if (bathCurrentStep === 1) {
+          text("👉 請從右側【拖曳洗髮精】至狗狗頭上，傾倒出泡泡！", width * 0.45, textY);
+        } else if (bathCurrentStep === 2) {
+          text(`👉 點選【蓮蓬頭】沖洗掉狗狗身上的泡泡 (${floor(bathDogState.washProgress)}%)`, width * 0.45, textY);
+        } else if (bathCurrentStep === 3) {
+          text(`👉 點選【吹風機】吹乾狗狗濕淋淋的毛髮 (${floor(bathDogState.dryProgress)}%)`, width * 0.45, textY);
+        }
+      }
+    }
+
+    // ==========================================
+    // 8. 第三關：更衣室穿著系統
+    // ==========================================
+    function drawFullscreenDressScene() {
+      push();
+      resetMatrix();
+
+      drawDressRoomBackground();
+
+      fill(PALETTE.charcoal);
+      textSize(max(20, 30 * (width / 1200)));
+      textStyle(BOLD);
+      text("👗 時尚更衣室", width / 2, max(36, 48 * (height / 800)));
+
+      let isBackHover = mouseX > 25 && mouseX < 135 && mouseY > 20 && mouseY < 65;
+      drawJellyButton(80, 42, 95, 38, "⮌ 返回", isBackHover);
+
+      let s = min(width / 950, height / 700);
+
+      let dogX = width * 0.32;
+      let dogY = height * 0.58;
+      drawDressDog(dogX, dogY, s);
+
+      if (dressGameOver) {
+        drawDogSpeechBubble(dogX, dogY - 180 * s, s);
+      }
+
+      let wardX = width * 0.70;
+      let wardY = height * 0.52;
+      drawInteractiveWardrobe(wardX, wardY, s);
+
+      if (wardrobeOpen) {
+        let currentSelected = -1;
+        if (dressPhase === 1) currentSelected = selectedHatIndex;
+        else if (dressPhase === 2) currentSelected = selectedSkinIndex;
+        else if (dressPhase === 3) currentSelected = selectedShoeIndex;
+
+        if (currentSelected !== -1 && !dressGameOver) {
+          let wH = 390 * s;
+          let btnW = 150 * s;
+          let btnH = 42 * s;
+          let btnX = wardX;
+          let btnY = wardY + wH / 2 - 38 * s;
+
+          let isOkHover = mouseX > btnX - btnW / 2 && mouseX < btnX + btnW / 2 &&
+                          mouseY > btnY - btnH / 2 && mouseY < btnY + btnH / 2;
+
+          let btnLabel = (dressPhase === 1 || dressPhase === 3) ? "OK ✔" : "確定 ✔";
+          drawJellyButton(btnX, btnY, btnW, btnH, btnLabel, isOkHover);
+        }
+      }
+
+      fill(PALETTE.charcoal);
+      textSize(max(15, 19 * (width / 1200)));
+      textStyle(BOLD);
+      let tipY = height * 0.94;
+      if (dressGameOver) {
+        text("🌟 謝謝你為小狗付出愛心！請牢記對動物的愛與責任喔！", width / 2, tipY);
+      } else if (!wardrobeOpen) {
+        text("👉 幫狗狗挑選適合的衣服（請點選衣櫃打開！）", width / 2, tipY);
+      } else {
+        if (dressPhase === 1) text("👉 步驟 1：請點選帽子穿戴，滿意請按下右側【OK】完成裝扮！", width / 2, tipY);
+        else if (dressPhase === 2) text("👉 步驟 2：請點選衣服穿戴，滿意請按下右側【確定】！", width / 2, tipY);
+        else if (dressPhase === 3) text("👉 步驟 3：請點選鞋子穿戴，滿意請按下右側【OK】完成裝扮！", width / 2, tipY);
+      }
+
+      if (dressGameOver) {
+        let btnW = 240;
+        let btnH = 50;
+        let btnX = width / 2;
+        let btnY = height * 0.86;
+        let isDoneHover = mouseX > btnX - btnW / 2 && mouseX < btnX + btnW / 2 &&
+                          mouseY > btnY - btnH / 2 && mouseY < btnY + btnH / 2;
+        drawJellyButton(btnX, btnY, btnW, btnH, "完成裝扮！返回選單 ➜", isDoneHover);
+      }
+
+      pop();
+    }
+
+    function drawDogSpeechBubble(bx, by, s) {
+      push();
+      translate(bx, by);
+
+      let msgIdx = floor((millis() / 3500) % KIDS_MESSAGES.length);
+      let currentMsg = KIDS_MESSAGES[msgIdx];
+
+      let bubbleW = min(360 * s, width * 0.42);
+      let bubbleH = 80 * s;
+
+      rectMode(CENTER);
+      fill(0, 0, 0, 35);
+      rect(0, 4 * s, bubbleW + 8 * s, bubbleH + 8 * s, 20 * s);
+
+      fill(255, 255, 255, 250);
+      stroke(PALETTE.jellyBlueBorder);
+      strokeWeight(3.5 * s);
+      rect(0, 0, bubbleW, bubbleH, 18 * s);
+
+      fill(255);
+      noStroke();
+      triangle(-12 * s, bubbleH / 2 - 2 * s, 0, bubbleH / 2 + 18 * s, 12 * s, bubbleH / 2 - 2 * s);
+      stroke(PALETTE.jellyBlueBorder);
+      strokeWeight(3.5 * s);
+      line(-12 * s, bubbleH / 2 - 1 * s, 0, bubbleH / 2 + 18 * s);
+      line(0, bubbleH / 2 + 18 * s, 12 * s, bubbleH / 2 - 1 * s);
+
+      let heartBeat = sin(frameCount * 0.12) * 3;
+      textSize(20 * s + heartBeat);
+      textAlign(CENTER, CENTER);
+      text("💖", bubbleW / 2 - 18 * s, -bubbleH / 2 + 16 * s);
+
+      fill('#1E293B');
+      noStroke();
+      textSize(max(13, 16 * s));
+      textStyle(BOLD);
+      textAlign(CENTER, CENTER);
+      rectMode(CENTER);
+      text(currentMsg, 0, 0, bubbleW - 32 * s, bubbleH - 16 * s);
+      pop();
+    }
+
+    function drawDressRoomBackground() {
+      push();
+      let wallH = height * 0.72;
+
+      let stripeW = 40;
+      for (let x = 0; x < width; x += stripeW) {
+        fill((x / stripeW) % 2 === 0 ? '#FFE4E6' : '#FFF1F2');
+        noStroke();
+        rect(x, 0, stripeW, wallH);
+      }
+
+      fill('#D97706');
+      rect(0, wallH, width, height - wallH);
+      stroke('#B45309');
+      strokeWeight(3);
+      line(0, wallH, width, wallH);
+      for (let x = -30; x < width + 60; x += 65) {
+        line(x, wallH, x + 35, height);
+      }
+
+      noStroke();
+      fill('#FCE7F3');
+      ellipse(width * 0.32, height * 0.74, width * 0.34, height * 0.16);
+      stroke('#F472B6');
+      strokeWeight(2.5);
+      noFill();
+      ellipse(width * 0.32, height * 0.74, width * 0.33, height * 0.15);
+      pop();
+    }
+
+    function drawDressDog(x, y, s) {
+      push();
+      translate(x, y);
+
+      let breath = sin(frameCount * (dressGameOver ? 0.12 : 0.05)) * 3;
+      translate(0, breath);
+
+      let dogBaseW = 350 * s;
+
+      if ((dirtyDog3Loaded || (dirtyDog3Img && dirtyDog3Img.width > 0)) && dirtyDog3Img && dirtyDog3Img.width > 0) {
+        let aspect = dirtyDog3Img.width / dirtyDog3Img.height;
+        let dogBaseH = dogBaseW / aspect;
+        image(dirtyDog3Img, 0, 0, dogBaseW, dogBaseH);
+      } else {
+        fill(PALETTE.dogBrown);
+        ellipse(0, 0, dogBaseW * 0.7, dogBaseW * 0.5);
+      }
+
+      let currentShoe = (confirmedShoe !== -1) ? confirmedShoe : (wardrobeOpen && dressPhase === 3 ? selectedShoeIndex : -1);
+      if (currentShoe !== -1) {
+        drawDogShoeWear(currentShoe, s);
+      }
+
+      let currentSkin = (confirmedSkin !== -1) ? confirmedSkin : (wardrobeOpen && dressPhase === 2 ? selectedSkinIndex : -1);
+      if (currentSkin !== -1) {
+        drawDogSkinWear(currentSkin, s);
+      }
+
+      let currentHat = (confirmedHat !== -1) ? confirmedHat : (wardrobeOpen && dressPhase === 1 ? selectedHatIndex : -1);
+      if (currentHat !== -1) {
+        drawDogHatWear(currentHat, s);
+      }
+
+      pop();
+    }
+
+    function drawDogHatWear(idx, s) {
+      push();
+      translate(30 * s, -68 * s);
+
+      let hatW = 120 * s;
+      let hatH = 88 * s;
+
+      if (hatImgs[idx] && hatImgs[idx].width > 0) {
+        image(hatImgs[idx], 0, 0, hatW, hatH);
+      } else {
+        let hatColors = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
+        let col = hatColors[idx % hatColors.length];
+        fill(col);
+        stroke(255);
+        strokeWeight(2.5 * s);
+        arc(0, 0, 100 * s, 60 * s, PI, TWO_PI);
+        ellipse(0, 0, 120 * s, 20 * s);
+        fill(255);
+        circle(0, -32 * s, 16 * s);
+      }
+      pop();
+    }
+
+    function drawDogSkinWear(idx, s) {
+      push();
+      translate(-18 * s, 12 * s);
+      if (skinImgs[idx] && skinImgs[idx].width > 0) {
+        image(skinImgs[idx], 0, 0, 175 * s, 120 * s);
+      } else {
+        let skinColors = ['#F43F5E', '#FB923C', '#FBBF24', '#34D399', '#38BDF8', '#A855F7'];
+        fill(skinColors[idx % skinColors.length]);
+        stroke(255);
+        strokeWeight(2 * s);
+        rectMode(CENTER);
+        rect(0, 0, 145 * s, 105 * s, 16 * s);
+        fill(255);
+        noStroke();
+        textSize(14 * s);
+        textStyle(BOLD);
+        text("PUPPY", 0, 0);
+      }
+      pop();
+    }
+
+    function drawDogShoeWear(idx, s) {
+      push();
+      if (shoeImgs[idx] && shoeImgs[idx].width > 0) {
+        image(shoeImgs[idx], 0, 95 * s, 230 * s, 55 * s);
+      } else {
+        let shoeColors = ['#DC2626', '#D97706', '#059669', '#2563EB', '#7C3AED', '#DB2777'];
+        fill(shoeColors[idx % shoeColors.length]);
+        noStroke();
+        ellipse(-8 * s, 0, 22 * s, 14 * s);
+        ellipse(8 * s, 0, 22 * s, 14 * s);
+      }
+      pop();
+    }
+
+    function drawInteractiveWardrobe(x, y, s) {
+      push();
+      translate(x, y);
+
+      let wW = 340 * s;
+      let wH = 390 * s;
+
+      noStroke();
+      fill(0, 0, 0, 30);
+      ellipse(0, wH / 2 + 15 * s, wW * 1.05, 26 * s);
+
+      fill('#78350F');
+      stroke('#451A03');
+      strokeWeight(4 * s);
+      rectMode(CENTER);
+      rect(0, 0, wW, wH, 16 * s);
+
+      fill('#92400E');
+      rect(0, -wH / 2 - 8 * s, wW * 1.05, 20 * s, 6 * s);
+
+      fill('#FEF3C7');
+      stroke('#B45309');
+      strokeWeight(2.5 * s);
+      rect(0, 5 * s, wW - 24 * s, wH - 42 * s, 8 * s);
+
+      stroke('#78350F');
+      strokeWeight(4 * s);
+      line(-wW / 2 + 20 * s, -wH / 2 + 50 * s, wW / 2 - 20 * s, -wH / 2 + 50 * s);
+
+      if (!wardrobeOpen) {
+        drawClosedWardrobeDoors(wW, wH, s);
+      } else {
+        drawOpenWardrobeItems(wW, wH, s);
+      }
+      pop();
+    }
+
+    function drawClosedWardrobeDoors(wW, wH, s) {
+      push();
+      rectMode(CORNER);
+      let doorW = (wW - 28 * s) / 2;
+      let doorH = wH - 46 * s;
+      let topY = -wH / 2 + 26 * s;
+
+      fill('#B45309');
+      stroke('#78350F');
+      strokeWeight(3 * s);
+      rect(-wW / 2 + 14 * s, topY, doorW, doorH, 4 * s);
+      rect(0, topY, doorW, doorH, 4 * s);
+
+      stroke('#451A03');
+      strokeWeight(3 * s);
+      line(0, topY, 0, topY + doorH);
+
+      fill('#F59E0B');
+      stroke('#B45309');
+      strokeWeight(1.5 * s);
+      circle(-8 * s, topY + doorH / 2, 10 * s);
+      circle(8 * s, topY + doorH / 2, 10 * s);
+
+      let isDoorHover = mouseX > (width * 0.70 - wW / 2) && mouseX < (width * 0.70 + wW / 2) &&
+                        mouseY > (height * 0.52 - wH / 2) && mouseY < (height * 0.52 + wH / 2);
+      fill(isDoorHover ? '#FDE047' : 255);
+      stroke(PALETTE.charcoal);
+      strokeWeight(2 * s);
+      rectMode(CENTER);
+      rect(0, topY + doorH * 0.3, 140 * s, 32 * s, 16 * s);
+
+      fill(PALETTE.charcoal);
+      noStroke();
+      textSize(13 * s);
+      textStyle(BOLD);
+      textAlign(CENTER, CENTER);
+      text("👆 點擊打開衣櫃", 0, topY + doorH * 0.3);
+      pop();
+    }
+
+    function drawOpenWardrobeItems(wW, wH, s) {
+      push();
+      fill('#92400E');
+      stroke('#451A03');
+      strokeWeight(2 * s);
+      rectMode(CORNER);
+      let doorW = (wW - 28 * s) / 2;
+      let doorH = wH - 46 * s;
+      let topY = -wH / 2 + 26 * s;
+      rect(-wW / 2 - doorW * 0.45, topY, doorW * 0.5, doorH, 4 * s);
+      rect(wW / 2 - 5 * s, topY, doorW * 0.5, doorH, 4 * s);
+
+      let cols = 2;
+      let itemW = 105 * s;
+      let itemH = 68 * s;
+      let startX = -65 * s;
+      let startY = -95 * s;
+
+      let currentSelected = -1;
+      if (dressPhase === 1) currentSelected = selectedHatIndex;
+      else if (dressPhase === 2) currentSelected = selectedSkinIndex;
+      else if (dressPhase === 3) currentSelected = selectedShoeIndex;
+
+      for (let i = 0; i < 6; i++) {
+        let col = i % cols;
+        let row = floor(i / cols);
+        let ix = startX + col * (itemW + 18 * s);
+        let iy = startY + row * (itemH + 12 * s);
+
+        let worldX = width * 0.70 + ix;
+        let worldY = height * 0.52 + iy;
+        let isHover = mouseX > worldX - itemW / 2 && mouseX < worldX + itemW / 2 &&
+                      mouseY > worldY - itemH / 2 && mouseY < worldY + itemH / 2;
+        let isSelected = (currentSelected === i);
+
+        push();
+        translate(ix, iy);
+        rectMode(CENTER);
+
+        fill(isSelected ? '#FEF9C3' : 255);
+        if (isHover || isSelected) {
+          stroke('#EAB308');
+          strokeWeight(4 * s);
+        } else {
+          stroke('#CBD5E1');
+          strokeWeight(2 * s);
+        }
+        rect(0, 0, itemW, itemH, 12 * s);
+
+        if (dressPhase === 1) drawHatOptionIcon(i, s);
+        else if (dressPhase === 2) drawSkinOptionIcon(i, s);
+        else if (dressPhase === 3) drawShoeOptionIcon(i, s);
+
+        pop();
+      }
+      pop();
+    }
+
+    function drawHatOptionIcon(idx, s) {
+      if (hatImgs[idx] && hatImgs[idx].width > 0) {
+        image(hatImgs[idx], 0, 0, 56 * s, 40 * s);
+      } else {
+        let hatColors = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
+        fill(hatColors[idx % hatColors.length]);
+        noStroke();
+        arc(0, 4 * s, 48 * s, 32 * s, PI, TWO_PI);
+        ellipse(0, 4 * s, 60 * s, 12 * s);
+        fill(255);
+        circle(0, -12 * s, 8 * s);
+      }
+    }
+
+    function drawSkinOptionIcon(idx, s) {
+      if (skinImgs[idx] && skinImgs[idx].width > 0) {
+        image(skinImgs[idx], 0, 0, 56 * s, 42 * s);
+      } else {
+        let skinColors = ['#F43F5E', '#FB923C', '#FBBF24', '#34D399', '#38BDF8', '#A855F7'];
+        fill(skinColors[idx % skinColors.length]);
+        noStroke();
+        rectMode(CENTER);
+        rect(0, 0, 46 * s, 38 * s, 8 * s);
+        fill(255);
+        circle(0, 0, 8 * s);
+      }
+    }
+
+    function drawShoeOptionIcon(idx, s) {
+      if (shoeImgs[idx] && shoeImgs[idx].width > 0) {
+        image(shoeImgs[idx], 0, 0, 54 * s, 36 * s);
+      } else {
+        let shoeColors = ['#DC2626', '#D97706', '#059669', '#2563EB', '#7C3AED', '#DB2777'];
+        fill(shoeColors[idx % shoeColors.length]);
+        noStroke();
+        ellipse(-8 * s, 0, 22 * s, 14 * s);
+        ellipse(8 * s, 0, 22 * s, 14 * s);
+      }
+    }
+
+    // ==========================================
+    // 裝飾與通用按鈕
+    // ==========================================
+    function drawRainbow(x, y, d) {
+      push();
+      noFill();
+      strokeWeight(8.5);
+      stroke(239, 68, 68);  arc(x, y, d, d, PI, TWO_PI);
+      stroke(249, 115, 22); arc(x, y, d - 15, d - 15, PI, TWO_PI);
+      stroke(234, 179, 8);  arc(x, y, d - 30, d - 30, PI, TWO_PI);
+      stroke(34, 197, 94);  arc(x, y, d - 45, d - 45, PI, TWO_PI);
+      stroke(59, 130, 246); arc(x, y, d - 60, d - 60, PI, TWO_PI);
+      stroke(168, 85, 247); arc(x, y, d - 75, d - 75, PI, TWO_PI);
+      pop();
+    }
+
+    function drawUpsideDownCloud(x, y) {
+      push();
+      translate(x, y);
+      rotate(cloudAngle);
+
+      noStroke();
+      fill(255);
+      circle(0, 0, 42);
+      circle(-15, 4, 28);
+      circle(15, 4, 28);
+      circle(-6, -13, 26);
+      circle(8, -13, 22);
+
+      fill(PALETTE.charcoal);
+      circle(-8, 3, 4);
+      circle(8, 3, 4);
+      noFill();
+      stroke(PALETTE.charcoal);
+      strokeWeight(2);
+      arc(0, -5, 9, 7, PI, TWO_PI);
+
+      noStroke();
+      fill(244, 114, 182, 180);
+      circle(-13, -2, 5);
+      circle(13, -2, 5);
+      pop();
+    }
+
+    function drawCurvedText(txt, x, y, size, angle) {
+      push();
+      translate(x, y);
+      rotate(angle);
+      textSize(size);
+      textStyle(BOLD);
+
+      fill(PALETTE.textPurpleBorder);
+      text(txt, 2, 2);
+
+      fill(PALETTE.textPurple);
+      text(txt, 0, 0);
+
+      fill(255, 255, 255, 140);
+      textSize(size * 0.95);
+      text(txt, -1, -2);
+      pop();
+    }
+
+    function drawJellyTitle(txt, x, y, size) {
+      push();
+      textSize(size);
+      textStyle(BOLD);
+
+      fill(PALETTE.textYellowBorder);
+      text(txt, x + 3, y + 3);
+
+      fill(PALETTE.textYellow);
+      text(txt, x, y);
+
+      fill(255, 255, 255, 180);
+      textSize(size * 0.93);
+      text(txt, x - 2, y - 3);
+      pop();
+    }
+
+    function drawJellyButton(x, y, w, h, label, isHover) {
+      push();
+      rectMode(CENTER);
+
+      fill(PALETTE.jellyBlueDark);
+      rect(x, y + 6, w + 16, h + 16, 24);
+
+      fill(PALETTE.jellyBlueBorder);
+      rect(x, y + 3, w, h, 18);
+
+      fill(isHover ? '#7DD3FC' : PALETTE.jellyBlue);
+      rect(x, y, w, h, 18);
+
+      noStroke();
+      fill(255, 255, 255, 90);
+      ellipse(x, y - h * 0.22, w * 0.75, h * 0.35);
+
+      textSize(24);
+      textStyle(BOLD);
+      fill(PALETTE.jellyBlueBorder);
+      text(label, x, y + 3);
+      fill(255);
+      text(label, x, y);
+      pop();
+    }
+
+    function drawMusicButtonDirect() {
+      let isHover = dist(mouseX, mouseY, width - 105, 42) < 26;
+      push();
+      resetMatrix();
+      rectMode(CENTER);
+      fill(isHover ? '#7DD3FC' : PALETTE.jellyBlue);
+      stroke(PALETTE.jellyBlueDark);
+      strokeWeight(2.5);
+      rect(width - 105, 42, 42, 42, 12);
+      fill(255);
+      noStroke();
+      textSize(20);
+      text(isMusicPlaying ? "🔊" : "🔇", width - 105, 43);
+      pop();
+    }
+
+    function drawFullscreenButtonDirect() {
+      let isHover = dist(mouseX, mouseY, width - 50, 42) < 26;
+      let isFull = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      push();
+      resetMatrix();
+      rectMode(CENTER);
+      fill(isHover ? '#7DD3FC' : PALETTE.jellyBlue);
+      stroke(PALETTE.jellyBlueDark);
+      strokeWeight(2.5);
+      rect(width - 50, 42, 42, 42, 12);
+      fill(255);
+      noStroke();
+      textSize(20);
+      text(isFull ? "✕" : "⛶", width - 50, 43);
+      pop();
+    }
+
+    function toggleMusic() {
+      if (isMusicPlaying) {
+        try {
+          if (bgmElement) bgmElement.pause();
+          if (rainElement) rainElement.pause();
+          if (bubbleElement) bubbleElement.pause();
+          if (weakElement) weakElement.pause();
+        } catch (e) {}
+        isMusicPlaying = false;
+      } else {
+        isMusicPlaying = true;
+        if (currentScene === 'STORY') {
+          if (rainElement) safePlayAudio(rainElement);
+        } else if (currentScene === 'BATH_PLAYING') {
+          if (bubbleElement) safePlayAudio(bubbleElement);
+        } else {
+          if (bgmElement) safePlayAudio(bgmElement);
+        }
+      }
+    }
+
+    function toggleFullscreen() {
+      try {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          let elem = document.documentElement;
+          if (elem.requestFullscreen) elem.requestFullscreen();
+          else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+        } else {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 事件處理
+    // ==========================================
+    function handlePointerDown(px, py) {
+      if (dist(mouseX, mouseY, width - 50, 42) < 28) {
+        toggleFullscreen();
+        return;
+      }
+
+      if (dist(mouseX, mouseY, width - 105, 42) < 28) {
+        toggleMusic();
+        return;
+      }
+
+      if (currentScene === 'COVER') {
+        if (px > V_WIDTH / 2 - 100 && px < V_WIDTH / 2 + 100 && py > 470 && py < 540) {
+          currentScene = 'LOADING_STORY';
+          loadingStartTime = millis();
+        }
+      } else if (currentScene === 'STORY') {
+        let storyElapsed = (millis() - storyStartTime) / 1000;
+
+        if (storyElapsed >= 5.0 && !branchData.isRemoved) {
+          let dogBaseX = V_WIDTH / 2;
+          let dogBaseY = 405;
+          let branchWorldX = dogBaseX + branchData.x;
+          let branchWorldY = dogBaseY + branchData.y;
+
+          if (dist(px, py, branchWorldX, branchWorldY) < 55) {
+            branchData.isDragging = true;
+            branchData.dragOffsetX = px - branchWorldX;
+            branchData.dragOffsetY = py - branchWorldY;
+            return;
+          }
+        }
+
+        if (storyElapsed >= 10.0 && branchData.isRemoved) {
+          if (px > 605 && px < 745 && py > 480 && py < 540) {
+            loadingNextStartTime = millis();
+            currentScene = 'LOADING_NEXT';
+          }
+        }
+      } else if (currentScene === 'STAGE_SELECT') {
+        let scaleFactor = ((menuBgLoaded || (menuBgImg && menuBgImg.width > 0)) && menuBgImg && menuBgImg.width > 0) ? 
+                          max(width / menuBgImg.width, height / menuBgImg.height) : 1;
+        let imgW = (menuBgImg && menuBgImg.width > 0) ? menuBgImg.width * scaleFactor : width;
+        let imgH = (menuBgImg && menuBgImg.height > 0) ? menuBgImg.height * scaleFactor : height;
+        let drawX = (width - imgW) / 2;
+        let drawY = (height - imgH) / 2;
+
+        let cardY = drawY + imgH * 0.225;
+        let cardH = imgH * 0.585;
+        let aidX = drawX + imgW * 0.125;
+        let aidW = imgW * 0.245;
+        let bathX = drawX + imgW * 0.385;
+        let bathW = imgW * 0.242;
+        let dressX = drawX + imgW * 0.638;
+        let dressW = imgW * 0.242;
+
+        if (mouseX > aidX && mouseX < (aidX + aidW) && mouseY > cardY && mouseY < (cardY + cardH)) {
+          resetCareSystem();
+          currentScene = 'CARE_PLAYING';
+        } else if (mouseX > bathX && mouseX < (bathX + bathW) && mouseY > cardY && mouseY < (cardY + cardH)) {
+          if (!unlockedStages.bath) {
+            lockTipMsg = "🔒 請先幫狗狗完成急救才能洗澡喔！";
+            lockTipTimer = millis() + 2200;
+          } else {
+            loadingBathStartTime = millis();
+            currentScene = 'LOADING_BATH';
+          }
+        } else if (mouseX > dressX && mouseX < (dressX + dressW) && mouseY > cardY && mouseY < (cardY + cardH)) {
+          if (!unlockedStages.dressUp) {
+            lockTipMsg = "🔒 請先幫狗狗完成急救與洗澡喔！";
+            lockTipTimer = millis() + 2200;
+          } else {
+            loadingDressStartTime = millis();
+            currentScene = 'LOADING_DRESS';
+          }
+        }
+      } 
+      else if (currentScene === 'CARE_PLAYING') {
+        if (px > 30 && px < 130 && py > 30 && py < 75) {
+          currentScene = 'STAGE_SELECT';
+          return;
+        }
+
+        if (careSuccess) {
+          if (px > V_WIDTH / 2 - 210 && px < V_WIDTH / 2 - 10 && py > 490 && py < 545) {
+            unlockedStages.bath = true;
+            currentScene = 'STAGE_SELECT';
+            return;
+          }
+        }
+
+        let panelX = 645;
+        let btnStartY = 85 + 50;
+        let btnH = 92;
+        for (let i = 0; i < careTools.length; i++) {
+          let by = btnStartY + i * (btnH + 8);
+          if (px > panelX + 10 && px < panelX + 125 && py > by && py < by + btnH) {
+            selectedToolIndex = i;
+            return;
+          }
+        }
+
+        let dogExamX = V_WIDTH / 2 - 120;
+        let dogExamY = 320;
+
+        if (selectedToolIndex === 0 && !careTools[0].done) {
+          let woundWorldX = dogExamX - 55;
+          let woundWorldY = dogExamY + 12;
+          if (dist(px, py, woundWorldX, woundWorldY) < 65) {
+            isWiping = true;
+            lastWipePos = { x: px, y: py };
+          }
+        }
+
+        if (selectedToolIndex === 1 && !careTools[1].done) {
+          let neckWorldX = dogExamX + 10;
+          let neckWorldY = dogExamY - 25;
+          if (dist(px, py, neckWorldX, neckWorldY) < 45) {
+            isInjecting = true;
+          } else if (dist(px, py, dogExamX, dogExamY) < 140) {
+            lockTipMsg = "⚠️ 只能注射在狗狗脖子的皮下部位喔！";
+            lockTipTimer = millis() + 1800;
+          }
+        }
+
+        if (selectedToolIndex === 2 && !careTools[2].done) {
+          for (let i = 0; i < bugs.length; i++) {
+            let b = bugs[i];
+            if (!b.inJar) {
+              let bugWorldX = dogExamX + b.x;
+              let bugWorldY = dogExamY + b.y;
+              if (dist(px, py, bugWorldX, bugWorldY) < 28) {
+                draggedBugIndex = i;
+                b.caught = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+      else if (currentScene === 'BATH_PLAYING') {
+        if (mouseX > 25 && mouseX < 135 && mouseY > 20 && mouseY < 65) {
+          currentScene = 'STAGE_SELECT';
+          return;
+        }
+
+        if (bathSuccess) {
+          let btnW = max(220, 260 * (width / 1200));
+          let btnH = max(45, 52 * (height / 800));
+          let btnX = width * 0.42;
+          let btnY = height * 0.88;
+          if (mouseX > btnX - btnW / 2 && mouseX < btnX + btnW / 2 &&
+              mouseY > btnY - btnH / 2 && mouseY < btnY + btnH / 2) {
+            unlockedStages.dressUp = true;
+            currentScene = 'STAGE_SELECT';
+            return;
+          }
+        }
+
+        if (!isColorConfirmed) {
+          let panelW = min(600, width * 0.78);
+          let panelH = max(135, 150 * (height / 800));
+          let panelX = (width - panelW) / 2;
+          let panelY = max(70, height * 0.12);
+          let row1Y = panelY + panelH * 0.32;
+          let startX = panelX + panelW * 0.44;
+          let gap = (panelW * 0.50) / 6;
+
+          for (let i = 0; i < TUB_COLORS.length; i++) {
+            let cx = startX + i * gap;
+            if (dist(mouseX, mouseY, cx, row1Y) < 20) {
+              selectedTubColor = TUB_COLORS[i];
+              return;
+            }
+          }
+
+          let btnW = min(220, panelW * 0.44);
+          let btnH = 40;
+          let btnX = width / 2;
+          let btnY = panelY + panelH * 0.74;
+          if (mouseX > btnX - btnW / 2 && mouseX < btnX + btnW / 2 &&
+              mouseY > btnY - btnH / 2 && mouseY < btnY + btnH / 2) {
+            isColorConfirmed = true;
+            triggerConfetti(1.0);
+            return;
+          }
+        }
+
+        if (isColorConfirmed && !bathDogState.inTub) {
+          if (dist(mouseX, mouseY, bathDogState.x, bathDogState.y) < 100) {
+            bathDogState.isDragging = true;
+            return;
+          }
+        }
+
+        let panelW = max(110, width * 0.12);
+        let panelH = min(height * 0.65, 450);
+        let panelX = width - panelW - max(20, width * 0.02);
+        let panelY = height * 0.20;
+        let btnStartY = panelY + 54;
+        let btnH = (panelH - 74) / 3 - 10;
+
+        if (bathDogState.inTub && bathCurrentStep === 1) {
+          let by1 = btnStartY;
+          if (mouseX > panelX + 8 && mouseX < panelX + panelW - 8 && mouseY > by1 && mouseY < by1 + btnH) {
+            isShampooDragging = true;
+            return;
+          }
+        }
+
+        if (bathDogState.inTub && bathCurrentStep === 2) {
+          let by2 = btnStartY + btnH + 10;
+          let tubX = width * 0.42;
+          let tubY = height * 0.63;
+          if ((mouseX > panelX + 8 && mouseX < panelX + panelW - 8 && mouseY > by2 && mouseY < by2 + btnH) ||
+              dist(mouseX, mouseY, tubX, tubY - height * 0.08) < 140) {
+            isShowerActive = true;
+          }
+        }
+
+        if (bathDogState.inTub && bathCurrentStep === 3) {
+          let by3 = btnStartY + (btnH + 10) * 2;
+          let tubX = width * 0.42;
+          let tubY = height * 0.63;
+          if ((mouseX > panelX + 8 && mouseX < panelX + panelW - 8 && mouseY > by3 && mouseY < by3 + btnH) ||
+              dist(mouseX, mouseY, tubX, tubY - height * 0.08) < 140) {
+            isDryerActive = true;
+          }
+        }
+      }
+      // 第三關更衣室互動點選
+      else if (currentScene === 'DRESS_PLAYING') {
+        if (mouseX > 25 && mouseX < 135 && mouseY > 20 && mouseY < 65) {
+          currentScene = 'STAGE_SELECT';
+          return;
+        }
+
+        if (dressGameOver) {
+          let btnW = 240;
+          let btnH = 50;
+          let btnX = width / 2;
+          let btnY = height * 0.86;
+          if (mouseX > btnX - btnW / 2 && mouseX < btnX + btnW / 2 &&
+              mouseY > btnY - btnH / 2 && mouseY < btnY + btnH / 2) {
+            currentScene = 'STAGE_SELECT';
+            return;
+          }
+        }
+
+        let s = min(width / 950, height / 700);
+        let wardX = width * 0.70;
+        let wardY = height * 0.52;
+        let wW = 340 * s;
+        let wH = 390 * s;
+
+        if (!wardrobeOpen) {
+          if (mouseX > wardX - wW / 2 && mouseX < wardX + wW / 2 &&
+              mouseY > wardY - wH / 2 && mouseY < wardY + wH / 2) {
+            wardrobeOpen = true;
+            return;
+          }
+        } else {
+          // 1. 優先檢查衣櫃內 6 個格子的點選判定（精準使用縮放因子 s）
+          let cols = 2;
+          let itemW = 105 * s;
+          let itemH = 68 * s;
+          let startX = -65 * s;
+          let startY = -95 * s;
+
+          for (let i = 0; i < 6; i++) {
+            let col = i % cols;
+            let row = floor(i / cols);
+            let ix = startX + col * (itemW + 18 * s);
+            let iy = startY + row * (itemH + 12 * s);
+            let worldX = wardX + ix;
+            let worldY = wardY + iy;
+
+            if (mouseX > worldX - itemW / 2 && mouseX < worldX + itemW / 2 &&
+                mouseY > worldY - itemH / 2 && mouseY < worldY + itemH / 2) {
+              if (dressPhase === 1) {
+                selectedHatIndex = i;
+                confirmedHat = -1; // 即時預覽選擇的帽子
+              } else if (dressPhase === 2) {
+                selectedSkinIndex = i;
+                confirmedSkin = -1;
+              } else if (dressPhase === 3) {
+                selectedShoeIndex = i;
+                confirmedShoe = -1;
+              }
+              return;
+            }
+          }
+
+          // 2. 檢查 OK / 確定 按鈕
+          let currentSelected = -1;
+          if (dressPhase === 1) currentSelected = selectedHatIndex;
+          else if (dressPhase === 2) currentSelected = selectedSkinIndex;
+          else if (dressPhase === 3) currentSelected = selectedShoeIndex;
+
+          if (currentSelected !== -1 && !dressGameOver) {
+            let btnW = 150 * s;
+            let btnH = 42 * s;
+            let btnX = wardX;
+            let btnY = wardY + wH / 2 - 38 * s;
+
+            if (mouseX > btnX - btnW / 2 && mouseX < btnX + btnW / 2 &&
+                mouseY > btnY - btnH / 2 && mouseY < btnY + btnH / 2) {
+              if (dressPhase === 1) {
+                confirmedHat = selectedHatIndex;
+                wardrobeOpen = false;
+                dressPhase = 4;
+                dressGameOver = true;
+                playHappySound();
+                triggerConfetti(4.0);
+              } else if (dressPhase === 3) {
+                confirmedShoe = selectedShoeIndex;
+                wardrobeOpen = false;
+                dressPhase = 4;
+                dressGameOver = true;
+                playHappySound();
+                triggerConfetti(4.0);
+              }
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    function mouseDragged() {
+      let vm = getVirtualMouse();
+
+      if (currentScene === 'CARE_PLAYING') {
+        let dogExamX = V_WIDTH / 2 - 120;
+        let dogExamY = 320;
+
+        if (selectedToolIndex === 0 && isWiping && !careTools[0].done) {
+          let woundWorldX = dogExamX - 55;
+          let woundWorldY = dogExamY + 12;
+
+          if (dist(vm.x, vm.y, woundWorldX, woundWorldY) < 70) {
+            let d = dist(vm.x, vm.y, lastWipePos.x, lastWipePos.y);
+            if (d > 22) {
+              cottonWipes++;
+              lastWipePos = { x: vm.x, y: vm.y };
+              painEffectTimer = millis() + 450;
+              if (cottonWipes >= 5) {
+                careTools[0].done = true;
+                isWiping = false;
+                checkAllDone();
+              }
+            }
+          }
+        }
+
+        if (selectedToolIndex === 2 && draggedBugIndex !== -1) {
+          let b = bugs[draggedBugIndex];
+          b.x = vm.x - dogExamX;
+          b.y = vm.y - dogExamY;
+        }
+      } else if (currentScene === 'BATH_PLAYING') {
+        let tubX = width * 0.42;
+        let tubY = height * 0.63;
+
+        if (bathDogState.isDragging && !bathDogState.inTub) {
+          bathDogState.x = mouseX;
+          bathDogState.y = mouseY;
+          if (dist(mouseX, mouseY, tubX, tubY) < 140) {
+            bathDogState.inTub = true;
+            bathDogState.isDragging = false;
+          }
+        }
+
+        if (isShampooDragging && bathCurrentStep === 1) {
+          if (dist(mouseX, mouseY, tubX, tubY - height * 0.08) < 95) {
+            bathDogState.headBubbles = min(100, bathDogState.headBubbles + 2.5);
+            bathDogState.bodyBubbles = min(100, bathDogState.bodyBubbles + 1.8);
+
+            if (bathDogState.headBubbles >= 100) {
+              isShampooDragging = false;
+              bathCurrentStep = 2;
+              triggerConfetti(1.2);
+            }
+          }
+        }
+
+        if (bathDogState.inTub && bathCurrentStep === 2 && isShowerActive) {
+          bathDogState.washProgress = min(100, bathDogState.washProgress + 1.6);
+          bathDogState.headBubbles = max(0, 100 - bathDogState.washProgress);
+          bathDogState.bodyBubbles = max(0, 100 - bathDogState.washProgress);
+
+          if (bathDogState.washProgress >= 100) {
+            bathDogState.stage = 2;
+            isShowerActive = false;
+            bathCurrentStep = 3;
+          }
+        }
+
+        if (bathDogState.inTub && bathCurrentStep === 3 && isDryerActive) {
+          bathDogState.dryProgress = min(100, bathDogState.dryProgress + 1.4);
+          if (bathDogState.dryProgress >= 100) {
+            bathDogState.stage = 3;
+            isDryerActive = false;
+            bathSuccess = true;
+            triggerConfetti(4.0);
+          }
+        }
+      }
+    }
+
+    function mouseWheel(event) {
+      if (currentScene === 'CARE_PLAYING' && selectedToolIndex === 3 && !careTools[3].done) {
+        let vm = getVirtualMouse();
+        let dogExamX = V_WIDTH / 2 - 120;
+        let dogExamY = 320;
+
+        if (dist(vm.x, vm.y, dogExamX - 45, dogExamY + 12) < 130) {
+          if (event.delta > 0) {
+            bandageRollProgress = min(100, bandageRollProgress + 8);
+            painEffectTimer = millis() + 350;
+
+            if (bandageRollProgress >= 100) {
+              careTools[3].done = true;
+              checkAllDone();
+            }
+          }
+        }
+        return false;
+      }
+    }
+
+    function checkAllDone() {
+      let all = careTools.every(t => t.done);
+      if (all) {
+        careSuccess = true;
+        unlockedStages.bath = true;
+      } else {
+        let nextIdx = careTools.findIndex(t => !t.done);
+        if (nextIdx !== -1) selectedToolIndex = nextIdx;
+      }
+    }
+
+    function mousePressed() {
+      playLampSound();
+      let vm = getVirtualMouse();
+      handlePointerDown(vm.x, vm.y);
+    }
+
+    function touchStarted() {
+      playLampSound();
+      let vm = getVirtualMouse();
+      handlePointerDown(vm.x, vm.y);
+      return false;
+    }
+
+    function mouseReleased() {
+      if (branchData.isDragging) {
+        branchData.isDragging = false;
+        if (!branchData.isRemoved) {
+          branchData.x = branchData.initialX;
+          branchData.y = branchData.initialY;
+        }
+      }
+
+      isWiping = false;
+      isInjecting = false;
+
+      if (currentScene === 'BATH_PLAYING') {
+        if (bathDogState.isDragging && !bathDogState.inTub) {
+          bathDogState.x = width * 0.76;
+          bathDogState.y = height * 0.60;
+          bathDogState.isDragging = false;
+        }
+        isShampooDragging = false;
+        isShowerActive = false;
+        isDryerActive = false;
+      }
+
+      if (draggedBugIndex !== -1) {
+        let vm = getVirtualMouse();
+        let b = bugs[draggedBugIndex];
+
+        if (vm.x > jarBounds.x && vm.x < jarBounds.x + jarBounds.w &&
+            vm.y > jarBounds.y && vm.y < jarBounds.y + jarBounds.h) {
+          b.inJar = true;
+          painEffectTimer = millis() + 500;
+        } else {
+          b.caught = false;
+        }
+        draggedBugIndex = -1;
+
+        let allBugsInJar = bugs.every(bug => bug.inJar);
+        if (allBugsInJar) {
+          careTools[2].done = true;
+          checkAllDone();
+        }
+      }
+    }
+
+    function touchEnded() {
+      mouseReleased();
+      return false;
+    }
+  </script>
+</body>
+</html>
